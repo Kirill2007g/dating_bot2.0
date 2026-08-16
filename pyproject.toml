@@ -1,0 +1,26 @@
+[project]
+name = "dating-bot2"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Kirill", email = "kapitanxek@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "aiogram>=3.30.0",
+    "postgres>=4.0",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.15.0",
+    "sqlalchemy>=2.0.52",
+]
+
+[project.scripts]
+dating-bot2 = "dating_bot2:main"
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+package = false
