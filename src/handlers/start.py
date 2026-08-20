@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 import asyncio
 from states import StateRegistration
 from handlers.keyboards import(
-    start_markup, choose_gender
+    start_markup, choose_gender, choose_looking_for
 )
 from checksclasses.validation import (
     IsValidName, IsValidAge, IsValidCity,
@@ -23,13 +23,10 @@ async def command_start_handler(message: Message, state: FSMContext):
     await state.set_state()
 
 
-
 @router.message(F.text == "Заполнить анкету")
 async def start_registration(message: Message, state: FSMContext):
     await state.set_state(StateRegistration.name)
     await message.answer("Как тебя зовут?")
-
-
 
 
 @router.message(StateRegistration.name)
@@ -56,18 +53,37 @@ async def reg_gender(message: Message, state: FSMContext):
     await state.set_state(StateRegistration.city)
     await message.answer("Теперь напиши свой город")
 
+
+#Доделать
 @router.message(StateRegistration.city)
 async def reg_city(message: Message, state: FSMContext):
-    pass
-
+    if not await IsValidCity()(message):
+        return await message.answer("Введите название города")
+    await state.update_data(city=message.text)
+    await state.set_state(StateRegistration.city)
+    await message.answer("Теперь напишите о себе")
 
 @router.message(StateRegistration.description)
 async def reg_description(message: Message, state: FSMContext):
+    if not await IsValidDescription()(message):
+        return await message.answer("Напишите о себе")
+    await state.update_data(description=message.text)
+    await state.set_state(StateRegistration.looking_for)
+
+@router.message(StateRegistration.looking_for)
+async def reg_looking_for(message: Message, state: FSMContext):
+    if not await IsValidLookingfor()(message):
+        return await message.answer("Кого вы ищете", reply_markup=choose_looking_for)
+    await state.update_data(looking_for=message.text)
+    await state.set_state(StateRegistration.photo)
+
+@router.message(StateRegistration.photo)
+async def reg_photo(message: Message, state: FSMContext):
     pass
 
-
-
-
+@router.message(StateRegistration.confirm)
+async def reg_confirm(message: Message, state: FSMContext):
+    pass
 
 
 

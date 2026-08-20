@@ -22,3 +22,22 @@ choose_gender = builder_2.as_markup(
     resize_keyboard = True,
     one_time_keyboard = True
 )
+builder_3 = ReplyKeyboardBuilder()
+builder_3.add(KeyboardButton(text="Парни"))
+builder_3.add(KeyboardButton(text="Девушки"))
+builder_3.add(KeyboardButton(text="Все разницы"))
+
+builder_3.adjust(3)
+
+choose_looking_for = builder_3.as_markup(
+    resize_keyboard = True,
+    one_time_keyboard = True
+)
+
+builder_4 = ReplyKeyboardBuilder()
+builder_4.add(KeyboardButton(text="Все верно?"))
+builder_4.adjust(1)
+confirm_kb = builder_4.as_markup(
+    resize_keyboard= True,
+    one_time_keyboard = True
+)
