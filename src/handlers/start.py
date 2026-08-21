@@ -1,5 +1,5 @@
 from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 
@@ -11,7 +11,8 @@ from handlers.keyboards import(
 )
 from checksclasses.validation import (
     IsValidName, IsValidAge, IsValidCity,
-    IsValidDescription, IsValidGender, IsValidLookingfor
+    IsValidDescription, IsValidGender, IsValidLookingfor,
+
 )
 
 
@@ -27,7 +28,7 @@ async def command_start_handler(message: Message, state: FSMContext):
 @router.message(F.text == "Заполнить анкету")
 async def start_registration(message: Message, state: FSMContext):
     await state.set_state(StateRegistration.name)
-    await message.answer("Как тебя зовут?")
+    await message.answer("Как тебя зовут?", reply_markup=ReplyKeyboardRemove())
 
 
 @router.message(StateRegistration.name)
@@ -52,7 +53,7 @@ async def reg_gender(message: Message, state: FSMContext):
         return await message.answer("Выбери пол", reply_markup=choose_gender)
     await state.update_data(gender=message.text)
     await state.set_state(StateRegistration.city)
-    await message.answer("Теперь напиши свой город")
+    await message.answer("Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
 
 
 #Доделать
@@ -77,26 +78,28 @@ async def reg_looking_for(message: Message, state: FSMContext):
     if not await IsValidLookingfor()(message):
         return await message.answer("Кого вы ищете", reply_markup=choose_looking_for)
     await state.update_data(looking_for=message.text)
-    await state.set_state(StateRegistration.confirm)
-    await message.answer("Все верно?")
-    data = await state.get_data()
-    await state.clear()
-    await message.answer(
-            f"Имя: {data['name']} \n, Возраст: {data['age']} \n, Гендер: {data['gender']} \n, Город: {data['city']} \n, О себе: {data['description']} \n, Кого ищете: {data['looking_for']} \n"
-        )
+    await state.set_state(StateRegistration.photo)
+    await message.answer("Теперь пришлите фото/видео до 3 штук")
+    await state.update_data(user_media=[])
+
+@router.message(StateRegistration.photo)
+async def reg_photo(message: Message, state: FSMContext):
+    if not await IsValidMedia()(message):
+        return await message.answer("Пожалуйста, отправь мне фото, видео или кружок!")
+
+
 
 
 @router.message(StateRegistration.confirm)
 async def reg_confirm(message: Message, state: FSMContext):
-    pass
+    if message == "Да":
+        message.answer("Отлично анкета сохранена", reply_markup=ReplyKeyboardRemove())
+        await state.clear()
 
 
 
 
 
-@router.message(StateRegistration.photo)
-async def reg_photo(message: Message, state: FSMContext):
-    pass
 
 
 

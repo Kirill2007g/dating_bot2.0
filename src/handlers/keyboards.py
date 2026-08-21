@@ -9,7 +9,7 @@ builder.adjust(2)
 
 start_markup = builder.as_markup(
     resize_keyboard = True,
-    one_time_keyboard = True
+    one_time_keyboard = False
 )
 
 builder_2 = ReplyKeyboardBuilder()
@@ -20,7 +20,7 @@ builder_2.adjust(2)
 
 choose_gender = builder_2.as_markup(
     resize_keyboard = True,
-    one_time_keyboard = True
+    one_time_keyboard = False
 )
 builder_3 = ReplyKeyboardBuilder()
 builder_3.add(KeyboardButton(text="Парни"))
@@ -31,13 +31,18 @@ builder_3.adjust(3)
 
 choose_looking_for = builder_3.as_markup(
     resize_keyboard = True,
-    one_time_keyboard = True
+    one_time_keyboard = False
 )
 
 builder_4 = ReplyKeyboardBuilder()
-builder_4.add(KeyboardButton(text="Все верно?"))
-builder_4.adjust(1)
+builder_4.add(KeyboardButton(text="Да"))
+builder_4.add(KeyboardButton(text="Нет"))
+builder_4.adjust(2)
 confirm_kb = builder_4.as_markup(
     resize_keyboard= True,
-    one_time_keyboard = True
+    one_time_keyboard = False
 )
+
+# cancel_builder = ReplyKeyboardBuilder()
+# cancel_builder.add(KeyboardButton(text=""))
+

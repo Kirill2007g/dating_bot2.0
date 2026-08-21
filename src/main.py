@@ -1,9 +1,10 @@
 from config import settings
 from aiogram import Bot, Dispatcher
 from handlers import start
+from aiogram.fsm.storage.memory import MemoryStorage
 
 bot = Bot(token=settings.bot_token.get_secret_value())
-dp = Dispatcher()
+dp = Dispatcher(memory=MemoryStorage())
 
 dp.include_router(start.router)
 
@@ -12,5 +13,5 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
-    import asyncio 
+    import asyncio
     asyncio.run(main())

@@ -1,5 +1,29 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from .models import MediaType
+
+
+class UserBase(BaseModel):
+    tg_id:int
+    username: str = Field(..., max_length=255)
+    age: int = Field(..., ge=14, le=130)
+    gender: str
+    city: str = Field(..., min_length=2, max_length=255)
+    description: str = Field(..., max_length=1000)
+    looking_for: str = Field(..., max_length=255)
+
+    @field_validator('gender')
+    def validate_gender(cls, value):
+        if value not in ["Я Парень", "Я Девушка"]:
+            raise ValueError("Нету такого варианта ответа")
+        return value
+
+    @field_validator('looking_for')
+    def validate_looking_for(cls, value):
+        if value not in ["Парни", "Девушки", "Без разницы"]:
+            return ValueError("Нету такого варианта ответа")
+        return value
+
+
 
 class UserMediaBase(BaseModel):
     media_type: MediaType
@@ -14,14 +38,6 @@ class UserMediaResponse(UserMediaBase):
     user_id: int
     model_config = ConfigDict(from_attributes=True)
 
-
-class UserBase(BaseModel):
-    tg_id:int
-    username: str = Field(..., max_length=255)
-    description: str = Field(..., max_length=1000)
-    age: int = Field(..., ge=14, le=130)
-    city: str = Field(..., min_length=2, max_length=255)
-    looked_for: str = Field(..., max_length=255)
 
 class UserCreate(UserBase):
     pass  # Эту схему мы используем, когда бот получает данные из инпут-форм

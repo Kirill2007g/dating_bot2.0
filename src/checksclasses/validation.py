@@ -2,6 +2,7 @@ from aiogram.filters import BaseFilter
 from aiogram.types import Message
 import asyncio
 
+
 class IsValidName(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         if not message.text:
@@ -44,3 +45,6 @@ class IsValidLookingfor(BaseFilter):
             return False
         available_options = ["Парни", "Девушки", "Без разницы"]
         return message.text in available_options
+
+
+
