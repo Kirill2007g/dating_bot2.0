@@ -22,17 +22,21 @@ class IsValidGender(BaseFilter): #Парни, Девушки, Без разни�
         available_options = ["Я Парень", "Я Девушка"]
         return message.text in available_options
 
+
+# временно
 class IsValidCity(BaseFilter):
     async def __call__(self, message: Message) -> bool:
-        pass
+        return True
 
 
+# временно
 class IsValidDescription(BaseFilter):
     async def __call__(self, message: Message) -> bool:
-        if not message.text:
-            return False
-        description = message.text
-        return len(description) > 1000
+        # if not message.text:
+        #     return False
+        # description = message.text
+        # return not len(description) > 1000
+        return True
 
 class IsValidLookingfor(BaseFilter):
     async def __call__(self, message: Message) -> bool:
