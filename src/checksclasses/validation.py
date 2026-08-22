@@ -1,7 +1,13 @@
-from aiogram.filters import BaseFilter
-from aiogram.types import Message
 import asyncio
 
+from aiogram.filters import BaseFilter
+from aiogram.types import Message
+from dadata import Dadata
+
+from config import settings
+
+dadata_api_key = settings.dadata_api_key.get_secret_value()
+dadata_secret_key = settings.dadata_secret_key.get_secret_value()
 
 class IsValidName(BaseFilter):
     async def __call__(self, message: Message) -> bool:

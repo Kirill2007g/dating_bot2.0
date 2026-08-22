@@ -80,7 +80,6 @@ async def reg_looking_for(message: Message, state: FSMContext):
     await state.update_data(looking_for=message.text)
     await state.set_state(StateRegistration.photo)
     await message.answer("Теперь пришлите фото/видео до 3 штук")
-    await state.update_data(user_media=[])
 
 @router.message(StateRegistration.photo)
 async def reg_photo(message: Message, state: FSMContext):
