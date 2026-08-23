@@ -1,5 +1,5 @@
 from db.models import CityMapping
-from sqlalchemy import select
+from sqlalchemy import select, insert
 from db.database import async_session
 
 async def check_city_in_db(user_text: str):
@@ -17,3 +17,15 @@ async def check_city_in_db(user_text: str):
         else:
             print(f"\n[PostgreSQL] В базе данных пусто для: '{user_text}'")
             return None
+
+async def save_in_city_mapping(user_input: str, resolved_name: str):
+
+
+    async with async_session() as session:
+        query = insert(CityMapping).values(
+            user_input=user_input.strip().lower(),
+            resolved_name=resolved_name
+        )
+
+        await session.execute(query)
+        await session.commit()
