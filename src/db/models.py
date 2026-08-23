@@ -2,7 +2,6 @@ from enum import Enum
 from sqlalchemy import BigInteger, Integer, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-# Импортируем Base из чистого файла database
 from db.database import Base
 
 class MediaType(str, Enum):
@@ -32,6 +31,18 @@ class User(Base):
 
     media: Mapped[list["UserMedia"]] = relationship(
         "UserMedia",
-        back_populates="user", 
+        back_populates="user",
         cascade="all, delete-orphan"
     )
+
+class CityMapping(Base):
+    __tablename__ = "city_mapping"
+
+    user_input: Mapped[str] = mapped_column(String(100), nullable=False, primary_key=True)
+    resolved_name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+class Cities(Base):
+    __tablename__ = "cities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)

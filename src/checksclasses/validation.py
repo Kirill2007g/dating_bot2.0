@@ -1,4 +1,5 @@
 import asyncio
+import redis
 
 from aiogram.filters import BaseFilter
 from aiogram.types import Message
@@ -31,9 +32,21 @@ class IsValidGender(BaseFilter): #Парни, Девушки, Без разни�
 
 
 # временно
+
+r = redis.Redis(host="localhost", port=6379, decode_responses=True)
 class IsValidCity(BaseFilter):
     async def __call__(self, message: Message) -> bool:
-        return True
+        city = message.text.strip()
+        city_key = f"city:{city.lower()}"
+        cached_data = r.get(city_key)
+        if cached_data:
+            result = json.loads(cached_data)
+            print("Город найден в Redis")
+            print(f"Нормальный вид: {result['resolved_name']}")
+        else:
+            print("В Redis пусто, переходим к бд")
+
+
 
 
 # временно
