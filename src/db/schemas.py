@@ -40,10 +40,10 @@ class UserMediaResponse(UserMediaBase):
 
 
 class UserCreate(UserBase):
-    pass  # Эту схему мы используем, когда бот получает данные из инпут-форм
+    pass
 
 class UserResponse(UserBase):
     id: int
-    media: list[UserMediaResponse] = [] # Включаем связанные медиафайлы
+    media: list[UserMediaResponse] = []
 
-    model_config = ConfigDict(from_attributes=True) # Важно для интеграции с SQLAlchemy
+    model_config = ConfigDict(from_attributes=True)

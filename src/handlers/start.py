@@ -1,22 +1,31 @@
-from aiogram.filters import CommandStart
-from aiogram.types import Message, ReplyKeyboardRemove
-from aiogram import Router, F
-from aiogram.fsm.context import FSMContext
-
 import asyncio
-from states import StateRegistration
-from handlers.keyboards import(
-    start_markup, choose_gender, choose_looking_for,
-    confirm_kb
-)
+
+from aiogram import F, Router
+from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.types import InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove
+
+
 from checksclasses.validation import (
-    IsValidName, IsValidAge, IsValidCity,
-    IsValidDescription, IsValidGender, IsValidLookingfor,
-
+    AlbumMiddleware,
+    IsValidAge,
+    IsValidCity,
+    IsValidDescription,
+    IsValidGender,
+    IsValidLookingfor,
+    IsValidName,
 )
-
+from handlers.keyboards import (
+    choose_gender,
+    choose_looking_for,
+    confirm_kb,
+    start_markup,
+)
+from states import StateRegistration
 
 router = Router()
+
+router.message.middleware(AlbumMiddleware())
 
 @router.message(CommandStart())
 async def command_start_handler(message: Message, state: FSMContext):
@@ -81,10 +90,35 @@ async def reg_looking_for(message: Message, state: FSMContext):
     await state.set_state(StateRegistration.photo)
     await message.answer("Теперь пришлите фото/видео до 3 штук")
 
-@router.message(StateRegistration.photo)
-async def reg_photo(message: Message, state: FSMContext):
-    if not await IsValidMedia()(message):
-        return await message.answer("Пожалуйста, отправь мне фото, видео или кружок!")
+@router.message(StateRegistration.photo, flags={"album": True})
+async def reg_media(message: Message, album: list[Message], state: FSMContext):
+    media_group_list = []
+    saved_media_data = []
+    for m in album:
+        if m.photo:
+            file_id = m.photo[-1].file_id
+            media_group_list.append(InputMediaPhoto(media=file_id))
+            saved_media_data.append({"type": "photo", "file_id": file_id})
+        elif m.video:
+            file_id = m.video.file_id
+            media_group_list.append(InputMediaVideo(media=file_id))
+            saved_media_data.append({"type": "video", "file_id": file_id})
+        elif m.video_note:  # Это те самые "кружочки"
+            file_id = m.video_note.file_id
+            saved_media_data.append({"type": "video_note", "file_id": file_id})
+
+            await m.answer_video_note(video_note=file_id)
+    if media_group_list:
+        first = media_group_list[0]
+        if isinstance(first, InputMediaPhoto):
+            media_group_list[0] = InputMediaPhoto(
+                media=first.media, caption="Вот медиа, которые я принял! 🛠️"
+            )
+        elif isinstance(first, InputMediaVideo):
+            media_group_list[0] = InputMediaVideo(media=first.media, caption="Вот медиа, которые я принял! 🛠️")
+        await message.answer_media_group(media=media_group_list)
+    await state.update_data(user_media_list=saved_media_data)
+    await state.set_state(StateRegistration.confirm)
 
 
 
@@ -94,7 +128,6 @@ async def reg_confirm(message: Message, state: FSMContext):
     if message == "Да":
         message.answer("Отлично анкета сохранена", reply_markup=ReplyKeyboardRemove())
         await state.clear()
-
 
 
 
