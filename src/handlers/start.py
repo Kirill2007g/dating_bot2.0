@@ -22,8 +22,9 @@ from src.handlers.keyboards import (
     choose_looking_for,
     confirm_kb,
     start_markup,
+    menu_kb
 )
-from src.states import StateRegistration
+from src.states import StateRegistration, StateMenu
 
 router = Router()
 
@@ -115,28 +116,29 @@ async def reg_media(message: Message, album: list[Message], state: FSMContext):
         first = media_group_list[0]
         if isinstance(first, InputMediaPhoto):
             media_group_list[0] = InputMediaPhoto(
-                media=first.media, caption="Вот медиа, которые я принял!"
+                media=first.media
             )
         elif isinstance(first, InputMediaVideo):
-            media_group_list[0] = InputMediaVideo(media=first.media, caption="Вот медиа, которые я принял! ")
-        await message.answer_media_group(media=media_group_list)
+            media_group_list[0] = InputMediaVideo(media=first.media)
     await state.update_data(user_media_list=saved_media_data)
     data = await state.get_data()
-    await state.clear()
-    # await state.set_state(StateRegistration.confirm)
     success = await save_user_in_db(
         fsm_data=data
     )
-
+    await state.set_state(StateRegistration.confirm)
+    await message.answer_media_group(media=media_group_list)
+    await message.answer(f"{data['name']}, {data['age']}, {data['city']}\n{data['description']}")
+    await message.answer("Все верно?", reply_markup=confirm_kb)
 
 
 
 
 @router.message(StateRegistration.confirm)
 async def reg_confirm(message: Message, state: FSMContext):
-    if message == "Да":
-        message.answer("Отлично анкета сохранена", reply_markup=ReplyKeyboardRemove())
-        await state.clear()
+    if message.text == "Да":
+        await message.answer("Отлично анкета сохранена!", reply_markup=menu_kb)
+        await state.set_state(StateMenu.menu)
+
 
 
 

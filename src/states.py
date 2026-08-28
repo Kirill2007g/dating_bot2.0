@@ -10,3 +10,5 @@ class StateRegistration(StatesGroup):
     photo = State()
     confirm = State()
 
+class StateMenu(StatesGroup):
+    menu = State()

@@ -1,48 +1,36 @@
-from aiogram.types import KeyboardButton
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
-builder = ReplyKeyboardBuilder()
 
-builder.add(KeyboardButton(text="Заполнить анкету"))
+def make_keyboard(
+        buttons: list[str],
+        adjust: int | tuple[int, ...] = 1,
+        one_time: bool = False,
 
-builder.adjust(2)
+) -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    for text in buttons:
+        builder.add(KeyboardButton(text=text))
+    if isinstance(adjust, int):
+        builder.adjust(adjust)
+    else:
+        builder.adjust(*adjust)
+    return builder.as_markup(resize_keyboard=True, one_time_keyboard=one_time)
 
-start_markup = builder.as_markup(
-    resize_keyboard = True,
-    one_time_keyboard = False
+start_markup = make_keyboard(["Заполнить анкету"], adjust=2)
+
+choose_gender = make_keyboard(["Я Парень", "Я Девушка"], adjust=2)
+
+choose_looking_for = make_keyboard(["Парни", "Девушки", "Без разницы"], adjust=3)
+
+confirm_kb = make_keyboard(["Да", "Нет"], adjust=2)
+
+menu_kb = make_keyboard(
+    ["Смотреть анкеты", "Мой профиль", "Настройки", "Заполнить анкету заново"],
+    adjust=(4, 1),
+    one_time=True,
 )
 
-builder_2 = ReplyKeyboardBuilder()
-builder_2.add(KeyboardButton(text="Я Парень"))
-builder_2.add(KeyboardButton(text="Я Девушка"))
-
-builder_2.adjust(2)
-
-choose_gender = builder_2.as_markup(
-    resize_keyboard = True,
-    one_time_keyboard = False
+check_profiles = make_keyboard(
+    ["❤️", "👎", "💌", "💤"], adjust=(4, 1)
 )
-builder_3 = ReplyKeyboardBuilder()
-builder_3.add(KeyboardButton(text="Парни"))
-builder_3.add(KeyboardButton(text="Девушки"))
-builder_3.add(KeyboardButton(text="Все разницы"))
-
-builder_3.adjust(3)
-
-choose_looking_for = builder_3.as_markup(
-    resize_keyboard = True,
-    one_time_keyboard = False
-)
-
-builder_4 = ReplyKeyboardBuilder()
-builder_4.add(KeyboardButton(text="Да"))
-builder_4.add(KeyboardButton(text="Нет"))
-builder_4.adjust(2)
-confirm_kb = builder_4.as_markup(
-    resize_keyboard= True,
-    one_time_keyboard = False
-)
-
-# cancel_builder = ReplyKeyboardBuilder()
-# cancel_builder.add(KeyboardButton(text=""))
-

@@ -1,5 +1,6 @@
 from enum import Enum
-from sqlalchemy import JSON, BigInteger, Integer, String, ForeignKey
+from decimal import Decimal
+from sqlalchemy import JSON, BigInteger, Integer, String, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.database import Base
@@ -30,6 +31,12 @@ class User(Base):
     description: Mapped[str] = mapped_column(String(1000), nullable=True)
     looking_for: Mapped[str] = mapped_column(String(255), nullable=False)
     user_media_list: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    # rating: Mapped[Decimal] = mapped_column(
+    #     Numeric(precision=10, scale=4),
+    #     default=Decimal("0.0000"),
+    #     server_default="0.0000"
+    # )
+
 
     media: Mapped[list["UserMedia"]] = relationship(
         "UserMedia",
