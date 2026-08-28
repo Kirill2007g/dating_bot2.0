@@ -4,9 +4,11 @@ from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove
+from src.db.models import User
+from src.db.database import async_sessionmaker
+from src.db.db_queries import save_user_in_db
 
-
-from checksclasses.validation import (
+from src.checksclasses.validation import (
     AlbumMiddleware,
     IsValidAge,
     IsValidCity,
@@ -15,13 +17,13 @@ from checksclasses.validation import (
     IsValidLookingfor,
     IsValidName,
 )
-from handlers.keyboards import (
+from src.handlers.keyboards import (
     choose_gender,
     choose_looking_for,
     confirm_kb,
     start_markup,
 )
-from states import StateRegistration
+from src.states import StateRegistration
 
 router = Router()
 
@@ -44,6 +46,7 @@ async def start_registration(message: Message, state: FSMContext):
 async def reg_name(message: Message, state: FSMContext):
     if not await IsValidName()(message):
         return await message.answer("Введи имя")
+    await state.update_data(tg_id=message.from_user.id)
     await state.update_data(name=message.text)
     await state.set_state(StateRegistration.age)
     await message.answer("Сколько тебе лет")
@@ -52,7 +55,7 @@ async def reg_name(message: Message, state: FSMContext):
 async def reg_age(message: Message, state: FSMContext):
     if not await IsValidAge()(message):
         return await message.answer("Введи возраст ")
-    await state.update_data(age=message.text)
+    await state.update_data(age=int(message.text))
     await state.set_state(StateRegistration.gender)
     await message.answer("Теперь выберем пол", reply_markup=choose_gender)
 
@@ -103,7 +106,7 @@ async def reg_media(message: Message, album: list[Message], state: FSMContext):
             file_id = m.video.file_id
             media_group_list.append(InputMediaVideo(media=file_id))
             saved_media_data.append({"type": "video", "file_id": file_id})
-        elif m.video_note:  # Это те самые "кружочки"
+        elif m.video_note:
             file_id = m.video_note.file_id
             saved_media_data.append({"type": "video_note", "file_id": file_id})
 
@@ -112,13 +115,19 @@ async def reg_media(message: Message, album: list[Message], state: FSMContext):
         first = media_group_list[0]
         if isinstance(first, InputMediaPhoto):
             media_group_list[0] = InputMediaPhoto(
-                media=first.media, caption="Вот медиа, которые я принял! 🛠️"
+                media=first.media, caption="Вот медиа, которые я принял!"
             )
         elif isinstance(first, InputMediaVideo):
-            media_group_list[0] = InputMediaVideo(media=first.media, caption="Вот медиа, которые я принял! 🛠️")
+            media_group_list[0] = InputMediaVideo(media=first.media, caption="Вот медиа, которые я принял! ")
         await message.answer_media_group(media=media_group_list)
     await state.update_data(user_media_list=saved_media_data)
-    await state.set_state(StateRegistration.confirm)
+    data = await state.get_data()
+    await state.clear()
+    # await state.set_state(StateRegistration.confirm)
+    success = await save_user_in_db(
+        fsm_data=data
+    )
+
 
 
 

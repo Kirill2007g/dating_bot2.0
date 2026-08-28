@@ -1,6 +1,6 @@
 import asyncio
-from db.database import Base, engine
-import db.models  # noqa: F401 — регистрирует модели в Base.metadata
+from src.db.database import Base, engine
+from src.db import models
 
 
 async def init_db():

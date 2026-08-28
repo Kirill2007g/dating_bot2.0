@@ -1,6 +1,6 @@
-from config import settings
+from src.config import settings
 from aiogram import Bot, Dispatcher
-from handlers import start
+from src.handlers import start
 from aiogram.fsm.storage.memory import MemoryStorage
 
 bot = Bot(token=settings.bot_token.get_secret_value())

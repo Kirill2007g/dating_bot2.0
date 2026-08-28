@@ -1,9 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-from config import settings
 from sqlalchemy import String, select
-
-
+from src.config import settings
 
 # Единственный Base на весь проект
 class Base(DeclarativeBase):

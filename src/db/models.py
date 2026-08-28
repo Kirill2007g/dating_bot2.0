@@ -1,8 +1,8 @@
 from enum import Enum
-from sqlalchemy import BigInteger, Integer, String, ForeignKey
+from sqlalchemy import JSON, BigInteger, Integer, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from db.database import Base
+from src.db.database import Base
 
 class MediaType(str, Enum):
     PHOTO = "photo"
@@ -23,11 +23,13 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     tg_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
-    username: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(String(1000), nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     age: Mapped[int] = mapped_column(Integer, nullable=False)
+    gender: Mapped[str] = mapped_column(String(255), nullable=False)
     city: Mapped[str] = mapped_column(String(255), nullable=False)
-    looked_for: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(String(1000), nullable=True)
+    looking_for: Mapped[str] = mapped_column(String(255), nullable=False)
+    user_media_list: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
 
     media: Mapped[list["UserMedia"]] = relationship(
         "UserMedia",

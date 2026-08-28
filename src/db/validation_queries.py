@@ -5,8 +5,8 @@ from geopy.adapters import AioHTTPAdapter
 import redis
 
 from sqlalchemy import select
-from db.database import async_session
-from db.models import CityMapping
+from src.db.database import async_session
+from src.db.models import CityMapping
 
 
 async def validate_city_geopy(user_input):

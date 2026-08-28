@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from .models import MediaType
+from src.db.models import MediaType
 
 
 class UserBase(BaseModel):

@@ -1,6 +1,9 @@
-from db.models import CityMapping
+from src.db.models import CityMapping, User
 from sqlalchemy import select, insert
-from db.database import async_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.db.database import async_session
+
+
 
 async def check_city_in_db(user_text: str):
     clean_input = user_text.strip().lower()
@@ -29,3 +32,34 @@ async def save_in_city_mapping(user_input: str, resolved_name: str):
 
         await session.execute(query)
         await session.commit()
+
+async def save_user_in_db(fsm_data):
+    tg_id = fsm_data.get('tg_id')
+    name = fsm_data.get('name')
+    age = fsm_data.get('age')
+    gender = fsm_data.get('gender')
+    city = fsm_data.get('city')
+    description = fsm_data.get('description')
+    looking_for = fsm_data.get('looking_for')
+    media_list = fsm_data.get('user_media_list', [])
+
+    async with async_session() as session:
+        try:
+            new_user = User(
+                tg_id=tg_id,
+                name=name,
+                age=age,
+                gender=gender,
+                city=city,
+                description=description,
+                looking_for=looking_for,
+                user_media_list=media_list
+            )
+            session.add(new_user)
+            await session.commit()
+            return True
+        except Exception as e:
+            await session.rollback()
+            print(f"Ошибка БД: {e}")
+            return False
+
