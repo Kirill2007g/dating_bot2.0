@@ -1,8 +1,8 @@
-from src.db.models import CityMapping, User
-from sqlalchemy import func, select, insert
+from src.db.models import CityMapping, User, Action
+from sqlalchemy import func, select, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.database import async_session
-
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 
 async def check_city_in_db(user_text: str):
@@ -63,17 +63,6 @@ async def save_user_in_db(fsm_data):
             print(f"Ошибка БД: {e}")
             return False
 
-# async def get_profile(tg_id: int, boolean: bool) -> User | list | None:
-#     async with async_session() as session:
-#         query = select(User).where(User.tg_id == tg_id)
-#         result = await session.execute(query)
-#         user = result.scalar_one_or_none()
-#         if user is None:
-#             return None
-#         if boolean:
-#             return user
-#         else:
-#             return user.for_get_profile
 
 async def get_profile(tg_id: int, n: int):
     async with async_session() as session:
@@ -108,3 +97,57 @@ async def get_profiles(sps: list):
         ).limit(1)
         result = await session.execute(query)
         return result.scalars().all()
+
+async def set_reaction(from_user_id, to_user_id, reaction, message: str | None = None):
+    async with async_session() as session:
+        query = pg_insert(Action).values(
+            from_user_id=from_user_id,
+            to_user_id=to_user_id,
+            reaction=reaction,
+            message=message
+        )
+        query = query.on_conflict_do_update(
+            constraint="uq_from_to_user",
+            set_={"reaction": reaction, "message": message}
+        )
+        await session.execute(query)
+        await session.commit()
+
+async def adjust_rating(tg_id, rating_change: int):
+    async with async_session() as session:
+        query = update(User).where(User.tg_id==tg_id).values(rating=User.rating + rating_change)
+        await session.execute(query)
+        await session.commit()
+
+async def likes_dislikes_ratio():
+    pass
+
+async def likes_matches_ratio():
+    pass
+# async def set_dislike():
+#     pass
+# async def set_like_with_message():
+#     pass
+
+
+class ReactionType(str, Enum):
+    LIKE = "like"
+    DISLIKE = "dislike"
+
+class Action(Base):
+    __tablename__ = "actions"
+    __table_args__ = (
+        UniqueConstraint("from_user_id", "to_user_id", name="uq_from_to_user"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    from_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    to_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    reaction: Mapped[ReactionType] = mapped_column(nullable=False)
+    message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    from_user: Mapped['User'] = relationship(foreign_keys=[from_user_id])
+    to_user: Mapped['User'] = relationship(foreign_keys=[to_user_id])

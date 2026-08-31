@@ -34,3 +34,9 @@ menu_kb = make_keyboard(
 check_profiles = make_keyboard(
     ["❤️", "👎", "💌", "💤"], adjust=(4, 1)
 )
+settings_kb = make_keyboard(
+    ["Изменить язык", "Премиум", "Написать в поддержку"], adjust=(4, 4)
+)
+anketa_kb = make_keyboard(
+    ["Заполнить анкету заново", "Изменить текст", "Изменить медиа"], adjust=(3, 1)
+)

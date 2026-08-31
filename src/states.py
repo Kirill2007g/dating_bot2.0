@@ -15,5 +15,6 @@ class StateMenu(StatesGroup):
     show_profile = State()
     check_profiles = State()
     settings = State()
+    anketa = State
 
 
