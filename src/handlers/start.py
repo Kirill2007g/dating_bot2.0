@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove
 from src.db.models import User
 from src.db.database import async_sessionmaker
-from src.db.db_queries import save_user_in_db
+from src.db.db_queries import save_user_in_db, get_profile
 
 from src.checksclasses.validation import (
     AlbumMiddleware,
@@ -32,6 +32,10 @@ router.message.middleware(AlbumMiddleware())
 
 @router.message(CommandStart())
 async def command_start_handler(message: Message, state: FSMContext):
+    profile = await get_profile(message.from_user.id, 1)
+    if profile:
+        await message.answer("1", reply_markup=menu_kb)
+        return await state.set_state(StateMenu.menu)
     await state.clear()
     await message.answer("Привет я бот для поиска пары!\n", reply_markup=start_markup)
     await state.set_state()

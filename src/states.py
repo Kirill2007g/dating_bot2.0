@@ -12,3 +12,8 @@ class StateRegistration(StatesGroup):
 
 class StateMenu(StatesGroup):
     menu = State()
+    show_profile = State()
+    check_profiles = State()
+    settings = State()
+
+

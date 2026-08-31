@@ -4,7 +4,7 @@ import asyncio
 import redis
 from aiogram import BaseMiddleware
 from aiogram.filters import BaseFilter
-from aiogram.types import Message, TelegramObject
+from aiogram.types import InputMediaPhoto, InputMediaVideo, Message, TelegramObject
 from aiogram.dispatcher.flags import get_flag
 
 from src.config import settings
@@ -132,3 +132,12 @@ class AlbumMiddleware(BaseMiddleware):
         else:
             self.storage[mid].append(event)
             return
+
+def build_media_group(media_list: list[dict]):
+    result = []
+    for item in media_list:
+        if item["type"] == "photo":
+            result.append(InputMediaPhoto(media=item["file_id"]))
+        elif item["type"] == "video":
+            result.append(InputMediaVideo(media=item["file_id"]))
+    return result

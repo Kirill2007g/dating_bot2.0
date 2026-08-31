@@ -1,5 +1,5 @@
 from src.db.models import CityMapping, User
-from sqlalchemy import select, insert
+from sqlalchemy import func, select, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.database import async_session
 
@@ -63,3 +63,48 @@ async def save_user_in_db(fsm_data):
             print(f"Ошибка БД: {e}")
             return False
 
+# async def get_profile(tg_id: int, boolean: bool) -> User | list | None:
+#     async with async_session() as session:
+#         query = select(User).where(User.tg_id == tg_id)
+#         result = await session.execute(query)
+#         user = result.scalar_one_or_none()
+#         if user is None:
+#             return None
+#         if boolean:
+#             return user
+#         else:
+#             return user.for_get_profile
+
+async def get_profile(tg_id: int, n: int):
+    async with async_session() as session:
+        query = select(User).where(User.tg_id == tg_id)
+        result = await session.execute(query)
+        user = result.scalar_one_or_none()
+        if user is None:
+            return None
+        if n == 1:
+            return user
+        elif n == 0:
+            return user.for_get_profile
+        elif n == 3:
+            return user.show_profile
+        elif n == 4:
+            return user.show_profile_media
+
+async def get_profiles(sps: list):
+    age = int(sps[0])
+    city = sps[1]
+    looking_for = sps[2]
+    tg_id = int(sps[3])
+    conv_age = list(range(age - 2, age + 3))
+    async with async_session() as session:
+        query = select(User).where(
+            User.age.in_(conv_age),
+            User.city == city,
+            User.gender == looking_for
+        ).order_by(
+            func.abs(User.age - age),
+            User.rating.desc()
+        ).limit(1)
+        result = await session.execute(query)
+        return result.scalars().all()
