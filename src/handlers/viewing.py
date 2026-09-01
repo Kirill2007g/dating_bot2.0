@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from src.handlers.keyboards import check_profiles
-from src.db.db_queries import get_profile, get_profiles, set_reaction
+from src.db.db_queries import get_profile, get_profiles, set_reaction, gives_next_profile_tg_id
 from src.states import StateMenu, StateRegistration
 from src.checksclasses.validation import build_media_group
 
@@ -38,34 +38,35 @@ async def menu(message: Message, state: FSMContext):
 @router.message(F.text == "❤️")
 async def like_profile(message: Message, state: FSMContext):
     profile = await get_profile(tg_id=message.from_user.id, n=0)
+    to_user_id = await gives_next_profile_tg_id(tg_id=message.from_user.id, n=0)
     await set_reaction(
         from_user_id=message.from_user.id,
-        to_user_id=,
-        reaction="like"
+        to_user_id=to_user_id,
+        reaction="like",
         message=None,
 
     )
 
-@router.message(F.text == "👎")
-async def dislike_profile(message: Message, state: FSMContext):
-    profile = await get_profile(tg_id=message.from_user.id, n=0)
-        await set_reaction(
-            from_user_id=message.from_user.id,
-            to_user_id=,
-            reaction="like"
-            message=None,
+# @router.message(F.text == "👎")
+# async def dislike_profile(message: Message, state: FSMContext):
+#     profile = await get_profile(tg_id=message.from_user.id, n=0)
+#         await set_reaction(
+#             from_user_id=message.from_user.id,
+#             to_user_id=,
+#             reaction="like"
+#             message=None,
 
-        )
-@router.message(F.text == "💌")
-async def like_and_text_profile(message: Message, state: FSMContext):
-    profile = await get_profile(tg_id=message.from_user.id, n=0)
-        await set_reaction(
-            from_user_id=message.from_user.id,
-            to_user_id=,
-            reaction="like"
-            message=None,
+#         )
+# @router.message(F.text == "💌")
+# async def like_and_text_profile(message: Message, state: FSMContext):
+#     profile = await get_profile(tg_id=message.from_user.id, n=0)
+#         await set_reaction(
+#             from_user_id=message.from_user.id,
+#             to_user_id=,
+#             reaction="like"
+#             message=None,
 
-        )
+#         )
 @router.message(F.text == "💤")
 async def go_back(message: Message, state: FSMContext):
     pass

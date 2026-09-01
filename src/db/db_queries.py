@@ -98,6 +98,13 @@ async def get_profiles(sps: list):
         result = await session.execute(query)
         return result.scalars().all()
 
+async def gives_next_profile_tg_id(tg_id, n):
+    get = await get_profile(tg_id, n)
+    profile = await get_profiles(get)
+    if not profile:
+        return None
+    tg_id = profile.tg_id
+    return tg_id
 async def set_reaction(from_user_id, to_user_id, reaction, message: str | None = None):
     async with async_session() as session:
         query = pg_insert(Action).values(
@@ -130,24 +137,24 @@ async def likes_matches_ratio():
 #     pass
 
 
-class ReactionType(str, Enum):
-    LIKE = "like"
-    DISLIKE = "dislike"
+# class ReactionType(str, Enum):
+#     LIKE = "like"
+#     DISLIKE = "dislike"
 
-class Action(Base):
-    __tablename__ = "actions"
-    __table_args__ = (
-        UniqueConstraint("from_user_id", "to_user_id", name="uq_from_to_user"),
-    )
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    from_user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    to_user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    reaction: Mapped[ReactionType] = mapped_column(nullable=False)
-    message: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    from_user: Mapped['User'] = relationship(foreign_keys=[from_user_id])
-    to_user: Mapped['User'] = relationship(foreign_keys=[to_user_id])
+# class Action(Base):
+#     __tablename__ = "actions"
+#     __table_args__ = (
+#         UniqueConstraint("from_user_id", "to_user_id", name="uq_from_to_user"),
+#     )
+#     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+#     from_user_id: Mapped[int] = mapped_column(
+#         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+#     )
+#     to_user_id: Mapped[int] = mapped_column(
+#         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+#     )
+#     reaction: Mapped[ReactionType] = mapped_column(nullable=False)
+#     message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+#     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+#     from_user: Mapped['User'] = relationship(foreign_keys=[from_user_id])
+#     to_user: Mapped['User'] = relationship(foreign_keys=[to_user_id])
