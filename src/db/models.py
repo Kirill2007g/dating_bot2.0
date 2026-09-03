@@ -37,7 +37,7 @@ class User(Base):
          nullable=False
     )
     @property
-    def for_get_profile(self):
+    def show_form(self):
         return [self.age, self.city, self.looking_for, self.tg_id]
 
     @property
@@ -90,3 +90,12 @@ class Action(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     from_user: Mapped['User'] = relationship(foreign_keys=[from_user_id])
     to_user: Mapped['User'] = relationship(foreign_keys=[to_user_id])
+
+class SeenProfiles(Base):
+    __tablename__ = "seen_profiles"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    viewer_tg_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    seen_tg_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    __table_args__ = (
+        UniqueConstraint("viewer_tg_id", "seen_tg_id", name="uq_viewer_seen")
+    )

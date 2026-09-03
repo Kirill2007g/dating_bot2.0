@@ -33,10 +33,10 @@ async def clear(chat_id, bot):
 
 
 
-def track_message(func):  # Он должен принимать ФУНКЦИЮ (func), а не message!
+def track_message(func):
     @wraps(func)
-    async def wrapper(*args, **kwargs):  # Обязательно async def
-        # Находим сообщение среди аргументов хендлера
+    async def wrapper(*args, **kwargs):
+
         message = next((arg for arg in args if isinstance(arg, Message)), None)
         album = next((arg for arg in args if isinstance(arg, list) and arg and isinstance(arg, Message)), None)
 
@@ -45,10 +45,10 @@ def track_message(func):  # Он должен принимать ФУНКЦИЮ 
         elif album:
             track(album)
 
-        # Запускаем хендлер
+
         result = await func(*args, **kwargs)
 
-        # Если хендлер вернул сообщения, сохраняем их
+
         if result:
             if isinstance(result, list):
                 for item in result:

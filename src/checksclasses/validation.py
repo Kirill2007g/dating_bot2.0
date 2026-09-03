@@ -4,7 +4,7 @@ import asyncio
 import redis
 from aiogram import BaseMiddleware
 from aiogram.filters import BaseFilter
-from aiogram.types import InputMediaPhoto, InputMediaVideo, Message, TelegramObject
+from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message, TelegramObject
 from aiogram.dispatcher.flags import get_flag
 
 from src.config import settings
@@ -28,11 +28,11 @@ class IsValidAge(BaseFilter):
         return age.is_integer() and 16 <= age <= 130
 
 class IsValidGender(BaseFilter): #Парни, Девушки, Без разницы
-    async def __call__(self, message: Message) -> bool:
-        if not message.text:
+    async def __call__(self, callback_query: CallbackQuery) -> bool:
+        if not callback_query.data:
             return False
-        available_options = ["Я Парень", "Я Девушка"]
-        return message.text in available_options
+        available_options = ["gender_male", "gender_female"]
+        return callback_query.data in available_options
 
 
 # временно
@@ -95,11 +95,11 @@ class IsValidDescription(BaseFilter):
         return True
 
 class IsValidLookingfor(BaseFilter):
-    async def __call__(self, message: Message) -> bool:
-        if not message.text:
+    async def __call__(self, callback_query: CallbackQuery) -> bool:
+        if not callback_query.data:
             return False
-        available_options = ["Парни", "Девушки", "Без разницы"]
-        return message.text in available_options
+        available_options = ["looking_for_men", "looking_for_women", "looking_for_any"]
+        return callback_query.data in available_options
 
 
 class AlbumMiddleware(BaseMiddleware):

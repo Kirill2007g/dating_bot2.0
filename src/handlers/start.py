@@ -1,9 +1,10 @@
 import asyncio
+import json
 
 from aiogram import Bot, F, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove, WebAppInfo
 from sqlalchemy import func
 
 from src.checksclasses.decorators import ask, clear, track, track_message
@@ -26,6 +27,7 @@ from src.handlers.keyboards import (
     confirm_kb,
     menu_kb,
     start_markup,
+    anketa_kb,
 )
 from src.states import StateMenu, StateRegistration
 
@@ -36,7 +38,7 @@ router.message.middleware(AlbumMiddleware())
 from functools import wraps
 
 
-
+WEB_APP_URL =  "https://boondocks-dispersed-stir.ngrok-free.dev"
 
 
 
@@ -95,15 +97,15 @@ async def reg_age(message: Message, state: FSMContext, bot: Bot):
     bot_msg = await ask(message, "Теперь выберем пол", reply_markup=choose_gender)
     return bot_msg
 
-@router.message(StateRegistration.gender)
+@router.callback_query(StateRegistration.gender, F.data.in_(['gender_male', 'gender_female']))
 @track_message
-async def reg_gender(message: Message, state: FSMContext, bot: Bot):
-    if not await IsValidGender()(message):
-        return await message.answer("Выбери пол", reply_markup=choose_gender)
-    await clear(message.chat.id, bot)
-    await state.update_data(gender=message.text)
+async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot):
+    if not await IsValidGender()(callback_query):
+        return await callback_query.message.answer("Выбери пол", reply_markup=choose_gender)
+    await clear(callback_query.message.chat.id, bot)
+    await state.update_data(gender=callback_query.data)
     await state.set_state(StateRegistration.city)
-    bot_msg = await ask(message, "Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
+    bot_msg = await ask(callback_query.message, "Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
     return bot_msg
 
 
@@ -122,26 +124,32 @@ async def reg_city(message: Message, state: FSMContext, bot: Bot):
 
 @router.message(StateRegistration.description)
 @track_message
-async def reg_description(message: Message, state: FSMContext):
+async def reg_description(message: Message, state: FSMContext, bot: Bot):
     # if not await IsValidDescription()(message):
     #     return await message.answer("Напишите о себе")
+    await clear(message.chat.id, bot)
     await state.update_data(description=message.text)
     await state.set_state(StateRegistration.looking_for)
-    await message.answer("Кого вы ищете", reply_markup=choose_looking_for)
+    bot_msg = await ask(message, "Кого вы ищете", reply_markup=choose_looking_for)
+    return bot_msg
 
-@router.message(StateRegistration.looking_for)
+
+@router.callback_query(StateRegistration.looking_for, F.data.in_(['looking_for_men', 'looking_for_women', 'looking_for_any']))
 @track_message
-async def reg_looking_for(message: Message, state: FSMContext):
-    if not await IsValidLookingfor()(message):
-        return await message.answer("Кого вы ищете", reply_markup=choose_looking_for)
-    await state.update_data(looking_for=message.text)
-    await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot: Bot):
+    if not await IsValidLookingfor()(callback_query):
+        return await callback_query.message.answer("Кого вы ищете", reply_markup=choose_looking_for)
+    await clear(callback_query.message.chat.id, bot)
+    await state.update_data(looking_for=callback_query.data)
     await state.set_state(StateRegistration.photo)
-    await message.answer("Теперь пришлите фото/видео до 3 штук")
+    bot_msg = await ask(callback_query.message, "Теперь пришлите фото/видео до 3 штук")
+    return bot_msg
+
 
 @router.message(StateRegistration.photo, flags={"album": True})
 @track_message
-async def reg_media(message: Message, album: list[Message], state: FSMContext):
+async def reg_media(message: Message, album: list[Message], state: FSMContext, bot: Bot):
+    await clear(message.chat.id, bot)
     media_group_list = []
     saved_media_data = []
     for m in album:
@@ -166,36 +174,43 @@ async def reg_media(message: Message, album: list[Message], state: FSMContext):
             )
         elif isinstance(first, InputMediaVideo):
             media_group_list[0] = InputMediaVideo(media=first.media)
-    await state.update_data(user_media_list=saved_media_data)
     data = await state.get_data()
-    success = await save_user_in_db(
-        fsm_data=data
-    )
-    await state.set_state(StateRegistration.confirm)
-    await message.answer_media_group(media=media_group_list)
-    await message.answer(f"{data['name']}, {data['age']}, {data['city']}\n{data['description']}")
-    await message.answer("Все верно?", reply_markup=confirm_kb)
-
-
-
-
-@router.message(StateRegistration.confirm)
-@track_message
-async def reg_confirm(message: Message, state: FSMContext):
+    await state.update_data(user_media_list=saved_media_data)
+    bot_msg = await ask(message, "Вот как выглядит твоя анкета!", reply_markup=ReplyKeyboardRemove())
+    bot_msg2 = await ask(message, f"{data['name']}, {data['age']}, {data['city']}\n{data['description']}")
+    bot_msg3 = await ask(message, "Все верно?", reply_markup=confirm_kb)
     if message.text == "Да":
+        success = await save_user_in_db(fsm_data=data)
         await message.answer("Отлично анкета сохранена!", reply_markup=menu_kb)
         await state.set_state(StateMenu.menu)
     if message.text == "Нет":
-        await message.answer("Выберите какой пункт хотите исправить:\n"
-        "1. Заполнить анкету заново\n"
-        "2. Изменить 'Несколько пунктов'\n"
-        "3. Изменить 'Имя'\n"
-        "4. Изменить 'Возраст'\n"
-        "5. Изменить 'Пол'\n"
-        "6.Изменить 'Город'\n"
-        "7. Изменить 'О себе'\n"
-        "8. Изменить 'Кого вы ищете'\n"
-        "9. Изменить 'Медиа'\n")
+        await message.answer("Выберите какой пункт хотите исправить:\n", reply_markup=anketa_kb)
+    return [bot_msg, bot_msg2, bot_msg3]
+
+# @router.message(StateRegistration.make_anketa_again)
+# @track_message
+# async def make_anketa_again(message: Message, state: FSMContext, bot: Bot
+
+
+
+
+
+@router.message(Command("webapp"))
+async def cmd_start(message: Message):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="⚙️ Открыть настройки",
+            web_app=WebAppInfo(url=WEB_APP_URL)
+        )]
+    ])
+    await message.answer("Нажми на кнопку ниже, чтобы открыть Mini App:", reply_markup=keyboard)
+
+
+@router.message(F.web_app_data)
+async def handle_web_app_data(message: Message):
+    data = json.loads(message.web_app_data.data)
+    if "gender" in data or "looking_for" in data:
+        await message.answer("mini apps СРАБОТАЛ")
 
 
 
@@ -210,24 +225,6 @@ async def reg_confirm(message: Message, state: FSMContext):
 
 
 
-
-
-
-
-
-
-# @router.message(StateRegistration.name)
-# async def process_name(message: Message, state: FSMContext):
-
-#     # Вызываем наш фильтр вручную прямо в условии!
-#     if not await IsValidName()(message):
-#         # Если фильтр вернул False — даем ошибку и стопаем выполнение
-#         return await message.answer("Неверное имя! Только буквы, до 20 символов.")
-
-#     # Если фильтр вернул True — код спокойно идет дальше
-#     await state.update_data(name=message.text)
-#     await message.answer("Принято! А теперь введи свой возраст числом:")
-#     await state.set_state(StateRegistration.age)
 
 
 

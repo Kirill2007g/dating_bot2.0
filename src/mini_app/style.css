@@ -1,0 +1,18 @@
+.btn {
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+}
+.btn:hover {
+    opacity: 0.8;
+}
+
+.btn-blue {
+    background-color: blue;
+}
+
+
+.btn-pink {
+    background-color: #d63384;
+}

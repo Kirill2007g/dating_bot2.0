@@ -1,4 +1,4 @@
-from src.db.models import CityMapping, User, Action
+from src.db.models import CityMapping, User, Action, SeenProfiles
 from sqlalchemy import func, select, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.database import async_session
@@ -11,7 +11,6 @@ async def check_city_in_db(user_text: str):
         query = select(CityMapping).where(CityMapping.user_input == clean_input)
         db_result = await session.execute(query)
         mapping = db_result.scalar_one_or_none()
-
         if mapping:
             print(f"\n[PostgreSQL] Найдено совпадение!")
             print(f"Пользователь ввел: {user_text}")
@@ -63,74 +62,157 @@ async def save_user_in_db(fsm_data):
             print(f"Ошибка БД: {e}")
             return False
 
-
-async def get_profile(tg_id: int, n: int):
+async def get_profile(tg_id: int) -> User | None:
     async with async_session() as session:
         query = select(User).where(User.tg_id == tg_id)
         result = await session.execute(query)
-        user = result.scalar_one_or_none()
-        if user is None:
-            return None
-        if n == 1:
-            return user
-        elif n == 0:
-            return user.for_get_profile
-        elif n == 3:
-            return user.show_profile
-        elif n == 4:
-            return user.show_profile_media
+        return result.scalar_one_or_none()
 
-async def get_profiles(sps: list):
-    age = int(sps[0])
-    city = sps[1]
-    looking_for = sps[2]
-    tg_id = int(sps[3])
-    conv_age = list(range(age - 2, age + 3))
+async def get_show_form(tg_id: int):
+    user = await get_profile(tg_id)
+    return user.show_form if user else None
+
+async def get_profile_text(tg_id: int):
+    user = await get_profile(tg_id)
+    return user.show_profile if user else None
+
+async def get_profile_media(tg_id: int):
+    user = await get_profile(tg_id)
+    return user.show_profile_media if user else None
+
+# async def get_next_profile(tg_id: int, _dictionary_: dict) -> dict | None:
+
+
+# async def set_reaction(from_user_id, to_user_id, reaction, message: str | None = None):
+#     async with async_session() as session:
+#         query = pg_insert(Action).values(
+#             from_user_id=from_user_id,
+#             to_user_id=to_user_id,
+#             reaction=reaction,
+#             message=message
+#         )
+#         query = query.on_conflict_do_update(
+#             constraint="uq_from_to_user",
+#             set_={"reaction": reaction, "message": message}
+#         )
+#         await session.execute(query)
+#         await session.commit()
+
+# async def adjust_rating(tg_id, rating_change: int):
+#     async with async_session() as session:
+#         query = update(User).where(User.tg_id==tg_id).values(rating=User.rating + rating_change)
+#         await session.execute(query)
+#         await session.commit()
+
+# async def likes_dislikes_ratio():
+#     pass
+
+# async def likes_matches_ratio():
+#     pass
+
+async def mark_profile_seen(viewer_tg_id: int,seen_tg_id: int) -> None:
     async with async_session() as session:
+        query = pg_insert(SeenProfiles).values(
+            viewer_tg_id=viewer_tg_id,
+            seen_tg_id=seen_tg_id
+        ).on_conflict_do_nothing(index_elements=["viewer_tg_id" "seen_tg_id"])
+        await session.execute(query)
+        await session.commit()
+
+async def get_candidates(spisok: list,limit: int = 30,) -> dict:
+    age = int(spisok[0])
+    city = spisok[1]
+    looking_for = spisok[2]
+    tg_id = int(spisok[3])
+    age_range = range(age-2, age+2)
+    async with async_session() as session:
+        seen_subq = select(SeenProfiles.seen_tg_id).where(
+            SeenProfiles.viewer_tg_id == tg_id
+        )
         query = select(User).where(
-            User.age.in_(conv_age),
+            User.age.in_(age_range),
             User.city == city,
-            User.gender == looking_for
-        ).order_by(
-            func.abs(User.age - age),
-            User.rating.desc()
-        ).limit(1)
+            User.gender == looking_for,
+            User.tg_id != tg_id,
+            User.tg_id.notin_(seen_subq)
+        ).order_by(func.abs(User.age - age),
+         User.rating.desc()).limit(limit)
         result = await session.execute(query)
-        return result.scalars().all()
+        profiles = result.scalars().all()
 
-async def gives_next_profile_tg_id(tg_id, n):
-    get = await get_profile(tg_id, n)
-    profile = await get_profiles(get)
-    if not profile:
-        return None
-    tg_id = profile.tg_id
-    return tg_id
-async def set_reaction(from_user_id, to_user_id, reaction, message: str | None = None):
-    async with async_session() as session:
-        query = pg_insert(Action).values(
-            from_user_id=from_user_id,
-            to_user_id=to_user_id,
-            reaction=reaction,
-            message=message
-        )
-        query = query.on_conflict_do_update(
-            constraint="uq_from_to_user",
-            set_={"reaction": reaction, "message": message}
-        )
-        await session.execute(query)
-        await session.commit()
+        return {
+            str(user.tg_id): {
+                "id": user.id,
+                "tg_id": user.tg_id,
+                "name": user.name,
+                "age": user.age,
+                "gender": user.gender,
+                "city": user.city,
+                "description": user.description,
+                "looking_for": user.looking_for,
+                "rating": user.rating,
+            }
+            for user in profiles
+        }
+# async def get_user_for_show_ankets(_list_: list, seen_tg_ids: list) -> dict:
+#     tg_id = int(_list_[3])
+#     age = int(_list_[0])
+#     city = _list_[1]
+#     looking_for = _list_[2]
+#     age_range = list(range(age - 2, age + 3))
+#     async with async_session() as session:
+#         filters = [
+#             User.age.in_(age_range),
+#             User.city == city,
+#             User.gender == looking_for,
+#             User.tg_id != tg_id
+#         ]
+#         if seen_tg_ids:
+#             filters.append(~User.tg_id.notin_(seen_tg_ids))
+#         query = select(User).where(*filters).order_by(
+#             func.abs(User.age - age),
+#             User.rating.desc(). limit(30))
+#         result = await session.execute(query)
+#         profiles = result.scalars().all()
+#         profiles_dict = {
+#             str(user.tg_id): {
+#                 "id": user.id, #int
+#                 "tg_id": user.tg_id, #int
+#                 "name": user.name, #str
+#                 "age": user.age, #int
+#                 "gender": user.gender, #str
+#                 "city": user.city, #str
+#                 "description": user.description, #str
+#                 "looking_for": user.looking_for, #str
+#                 "rating": user.rating, #Decimal
+#             }
+#             for user in profiles
+#         }
+#         return profiles_dict
 
-async def adjust_rating(tg_id, rating_change: int):
-    async with async_session() as session:
-        query = update(User).where(User.tg_id==tg_id).values(rating=User.rating + rating_change)
-        await session.execute(query)
-        await session.commit()
+lst = {
+    "id": 5, #int
+    "tg_id": 7654337654, #int
+    "name": "Kacob", #str
+    "age": 18, #int
+    "gender": "male", #str
+    "city": "Kiev", #str
+    "description": "scientist", #str
+    "looking_for": "female", #str
+    "rating": 5.0001, #Decimal
+}
 
-async def likes_dislikes_ratio():
-    pass
-
-async def likes_matches_ratio():
-    pass
+dct = {
+    "id": ..., #int
+    "tg_id": ..., #int
+    "name": ..., #str
+    "age": ..., #int
+    "gender": ..., #str
+    "city": ..., #str
+    "description": ..., #str
+    "looking_for": ..., #str
+    "rating": ..., #Decimal
+}
 # async def set_dislike():
 #     pass
 # async def set_like_with_message():
