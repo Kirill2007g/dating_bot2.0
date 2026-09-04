@@ -36,6 +36,11 @@ class User(Base):
          server_default="0.0000",
          nullable=False
     )
+    media: Mapped[list["UserMedia"]] = relationship(
+        back_populates="user",
+        order_by="UserMedia.position",
+        cascade="all, delete-orphan",
+    )
     @property
     def show_form(self):
         return [self.age, self.city, self.looking_for, self.tg_id]
@@ -54,7 +59,24 @@ class User(Base):
                 f"AGE:{self.age}\n GENDER:{self.gender}\n CITY:{self.city}\n "
                 f"DESCRIPTION:{self.description}\n LOOKING_FOR:{self.looking_for}\n"
                 f" MEDIA_LIST:{self.user_media_list}\n RATING:{self.rating}\n>")
+class MediaType(Enum):
+    PHOTO = "photo"
+    VIDEO = "video"
+    CIRCLE = "circle"
 
+class UserMedia(Base):
+    __tablename__ = "user_media"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    media_type: Mapped[MediaType] = mapped_column(Enum(MediaType), nullable=False)
+    file_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    user: Mapped["User"] = relationship(back_populates="media")
+    __table_args__ = (
+        UniqueConstraint("user_id", "position", name="uq_user_media_position"),
+    )
+    def __repr__(self):
+        return f"<UserMedia id={self.id} user_id={self.user_id} type={self.media_type} pos={self.position}>"
 
 
 class CityMapping(Base):

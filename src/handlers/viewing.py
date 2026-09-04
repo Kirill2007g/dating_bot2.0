@@ -12,8 +12,8 @@ router = Router()
 @router.message(StateMenu.menu)
 async def menu(message: Message, state: FSMContext):
     if message.text == "Смотреть анкеты":
-        profile = await get_profile(tg_id=message.from_user.id, n=0)
-        send = await get_profiles(profile)
+        profile = await get_profile(tg_id=message.from_user.id)
+        send = await
         await message.answer(f"{send}", reply_markup=check_profiles)
 
     if message.text == "Мой профиль":
