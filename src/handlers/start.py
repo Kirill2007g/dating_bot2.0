@@ -19,7 +19,7 @@ from src.checksclasses.validation import (
     build_media_group,
 )
 from src.db.database import async_sessionmaker
-from src.db.db_queries import get_profile, save_user_in_db
+from src.db.db_queries import get_profile, save_user_in_db, get_profile_media, get_profile_text
 from src.db.models import User
 from src.handlers.keyboards import (
     choose_gender,
@@ -28,6 +28,7 @@ from src.handlers.keyboards import (
     menu_kb,
     start_markup,
     anketa_kb,
+    check_profiles
 )
 from src.states import StateMenu, StateRegistration
 
@@ -45,17 +46,17 @@ WEB_APP_URL =  "https://boondocks-dispersed-stir.ngrok-free.dev"
 @router.message(CommandStart())
 @track_message
 async def command_start_handler(message: Message, state: FSMContext):
-    profile = await get_profile(message.from_user.id, 1)
+    profile = await get_profile(message.from_user.id)
     if profile:
-        profile = await get_profile(tg_id=message.from_user.id, n=3)
-        media_list = await get_profile(tg_id=message.from_user.id, n=4)
+        profile = await get_profile_text(tg_id=message.from_user.id)
+        media_list = await get_profile_media(tg_id=message.from_user.id)
         if media_list:
             media = build_media_group(media_list)
             sent_msgs = []
             sent_msgs.append(await message.answer("Так выглядит твоя анкета!"))
             media_messages = await message.answer_media_group(media=media)
             sent_msgs.extend(media_messages)
-            sent_msgs.append(await message.answer(profile))
+            sent_msgs.append(await message.answer(profile, reply_markup=menu_kb))
             await state.set_state(StateMenu.menu)
             return sent_msgs
     await state.clear()
@@ -174,8 +175,8 @@ async def reg_media(message: Message, album: list[Message], state: FSMContext, b
             )
         elif isinstance(first, InputMediaVideo):
             media_group_list[0] = InputMediaVideo(media=first.media)
-    data = await state.get_data()
     await state.update_data(user_media_list=saved_media_data)
+    data = await state.get_data()
     bot_msg = await ask(message, "Вот как выглядит твоя анкета!", reply_markup=ReplyKeyboardRemove())
     bot_msg2 = await ask(message, f"{data['name']}, {data['age']}, {data['city']}\n{data['description']}")
     bot_msg3 = await ask(message, "Все верно?", reply_markup=confirm_kb)
@@ -183,34 +184,13 @@ async def reg_media(message: Message, album: list[Message], state: FSMContext, b
         success = await save_user_in_db(fsm_data=data)
         await message.answer("Отлично анкета сохранена!", reply_markup=menu_kb)
         await state.set_state(StateMenu.menu)
+        await clear(message.chat.id, bot)
     if message.text == "Нет":
         await message.answer("Выберите какой пункт хотите исправить:\n", reply_markup=anketa_kb)
     return [bot_msg, bot_msg2, bot_msg3]
 
-# @router.message(StateRegistration.make_anketa_again)
-# @track_message
-# async def make_anketa_again(message: Message, state: FSMContext, bot: Bot
 
 
-
-
-
-@router.message(Command("webapp"))
-async def cmd_start(message: Message):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="⚙️ Открыть настройки",
-            web_app=WebAppInfo(url=WEB_APP_URL)
-        )]
-    ])
-    await message.answer("Нажми на кнопку ниже, чтобы открыть Mini App:", reply_markup=keyboard)
-
-
-@router.message(F.web_app_data)
-async def handle_web_app_data(message: Message):
-    data = json.loads(message.web_app_data.data)
-    if "gender" in data or "looking_for" in data:
-        await message.answer("mini apps СРАБОТАЛ")
 
 
 

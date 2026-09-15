@@ -1,9 +1,9 @@
-from src.db.models import CityMapping, User, Action, SeenProfiles
+from src.db.models import CityMapping, MediaType, User, Action, SeenProfiles, UserMedia
 from sqlalchemy import func, select, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.database import async_session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-
+from sqlalchemy.orm import selectinload
 
 async def check_city_in_db(user_text: str):
     clean_input = user_text.strip().lower()
@@ -28,7 +28,6 @@ async def save_in_city_mapping(user_input: str, resolved_name: str):
             user_input=user_input.strip().lower(),
             resolved_name=resolved_name
         )
-
         await session.execute(query)
         await session.commit()
 
@@ -42,8 +41,21 @@ async def save_user_in_db(fsm_data):
     looking_for = fsm_data.get('looking_for')
     media_list = fsm_data.get('user_media_list', [])
 
+    #table users
     async with async_session() as session:
         try:
+            db_media = []
+            for position, media_item in enumerate(media_list):
+                m_type = media_item.get("media_type")
+                f_id = media_item.get("file_id")
+                db_media.append(
+                    UserMedia(
+
+                        media_type=MediaType(m_type),
+                        file_id=f_id,
+                        position=position
+                    )
+                )
             new_user = User(
                 tg_id=tg_id,
                 name=name,
@@ -52,7 +64,7 @@ async def save_user_in_db(fsm_data):
                 city=city,
                 description=description,
                 looking_for=looking_for,
-                user_media_list=media_list
+                media=db_media
             )
             session.add(new_user)
             await session.commit()
@@ -64,23 +76,28 @@ async def save_user_in_db(fsm_data):
 
 async def get_profile(tg_id: int) -> User | None:
     async with async_session() as session:
-        query = select(User).where(User.tg_id == tg_id)
-        result = await session.execute(query)
-        return result.scalar_one_or_none()
+        user_query = (
+            select(User)
+            .where(User.tg_id == tg_id)
+            .options(selectinload(User.media))
+        )
+        user_result = await session.execute(user_query)
+        return user_result.scalar_one_or_none()
 
 async def get_show_form(tg_id: int):
     user = await get_profile(tg_id)
-    return user.show_form if user else None
+    return (user.show_form, user.show_profile_media) if user else (None, None)
+
 
 async def get_profile_text(tg_id: int):
     user = await get_profile(tg_id)
-    return user.show_profile if user else None
+    return user.show_profile_text if user else None
+
 
 async def get_profile_media(tg_id: int):
     user = await get_profile(tg_id)
     return user.show_profile_media if user else None
 
-# async def get_next_profile(tg_id: int, _dictionary_: dict) -> dict | None:
 
 
 # async def set_reaction(from_user_id, to_user_id, reaction, message: str | None = None):
@@ -119,16 +136,33 @@ async def mark_profile_seen(viewer_tg_id: int,seen_tg_id: int) -> None:
         await session.execute(query)
         await session.commit()
 
+
+GENDER_MAP = {
+    "gender_male": "male",
+    "gender_female": "female",
+    "looking_for_women": "female",
+    "looking_for_any": None,
+    "looking_for_both": None,
+    "looking_for_men": "male",
+}
+#[self.age, self.city, self.looking_for, self.tg_id]
 async def get_candidates(spisok: list,limit: int = 30,) -> dict:
     age = int(spisok[0])
     city = spisok[1]
     looking_for = spisok[2]
     tg_id = int(spisok[3])
+
+    if looking_for not in GENDER_MAP:
+        raise ValueError
+    looking_for_gender = GENDER_MAP[looking_for]
     age_range = range(age-2, age+2)
+
     async with async_session() as session:
         seen_subq = select(SeenProfiles.seen_tg_id).where(
             SeenProfiles.viewer_tg_id == tg_id
         )
+        if looking_for_gender is not None:
+            filters.append
         query = select(User).where(
             User.age.in_(age_range),
             User.city == city,
@@ -154,6 +188,13 @@ async def get_candidates(spisok: list,limit: int = 30,) -> dict:
             }
             for user in profiles
         }
+
+# def take_rand(func, _list_, limit=30):
+#     candidates = await func(_list_)
+#     for _, profile in candidates.items():
+#         tg_id = profile['rating']
+#     profile = candidates.get(str(tg_id))
+
 # async def get_user_for_show_ankets(_list_: list, seen_tg_ids: list) -> dict:
 #     tg_id = int(_list_[3])
 #     age = int(_list_[0])
