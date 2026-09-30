@@ -1,11 +1,11 @@
 import json
-from typing import Any, Awaitable, Callable, Dict, List
+from typing import Any, Awaitable, Callable
 import asyncio
 import redis
 from aiogram import BaseMiddleware
 from aiogram.filters import BaseFilter
-from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message, TelegramObject
-from aiogram.dispatcher.flags import get_flag
+from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message
+
 
 from src.config import settings
 from src.db.db_queries import check_city_in_db, save_in_city_mapping
@@ -55,7 +55,7 @@ class IsValidCity(BaseFilter):
             return True
         else:
             print("В Redis пусто, переходим к бд")
-            check_db = await check_city_in_db(message.text)
+            check_db = await check_city_in_db(city)
             if check_db:
                 print("Сохраняем город в Redis")
                 r.set(
@@ -66,10 +66,10 @@ class IsValidCity(BaseFilter):
                 return True
             else:
                 print("Город не найден Идем в geopy")
-                check_geopy = await validate_city_geopy(message.text)
+                check_geopy = await validate_city_geopy(city)
                 if check_geopy:
                     city_name = check_geopy.raw.get('name') or check_geopy.address.split(',')[0]
-                    await save_in_city_mapping(message.text, city_name)
+                    await save_in_city_mapping(city, city_name)
                     r.set(
                         city_key,
                         json.dumps({
@@ -101,37 +101,36 @@ class IsValidLookingfor(BaseFilter):
         available_options = ["looking_for_men", "looking_for_women", "looking_for_any"]
         return callback_query.data in available_options
 
-
-class AlbumMiddleware(BaseMiddleware):
-    def __init__(self, latency: float = 0.2):
-        self.latency = latency
-        self.storage: Dict[str, List[Message]] = {}
-    async def __call__(
-        self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
-        event: TelegramObject,
-        data: Dict[str, Any]
-    ) -> Any:
-        if not isinstance(event, Message):
-            return await handler(event, data)
-        album_flag = get_flag(data, "album")
-        if not album_flag:
-            return await handler(event, data)
-        if not event.media_group_id:
-            data["album"] = [event]
-            return await handler(event, data)
-        mid = event.media_group_id
-        if mid not in self.storage:
-            self.storage[mid] = []
-            self.storage[mid].append(event)
-            await asyncio.sleep(self.latency)
-            data["album"] = self.storage.pop(mid, [])
-            if not data["album"]:
-                return
-            return await handler(event, data)
-        else:
-            self.storage[mid].append(event)
-            return
+# class AlbumMiddleware(BaseMiddleware):
+#     def __init__(self, latency: float = 0.2):
+#         self.latency = latency
+#         self.storage: Dict[str, List[Message]] = {}
+#     async def __call__(
+#         self,
+#         handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+#         event: TelegramObject,
+#         data: Dict[str, Any]
+#     ) -> Any:
+#         if not isinstance(event, Message):
+#             return await handler(event, data)
+#         album_flag = get_flag(data, "album")
+#         if not album_flag:
+#             return await handler(event, data)
+#         if not event.media_group_id:
+#             data["album"] = [event]
+#             return await handler(event, data)
+#         mid = event.media_group_id
+#         if mid not in self.storage:
+#             self.storage[mid] = []
+#             self.storage[mid].append(event)
+#             await asyncio.sleep(self.latency)
+#             data["album"] = self.storage.pop(mid, [])
+#             if not data["album"]:
+#                 return
+#             return await handler(event, data)
+#         else:
+#             self.storage[mid].append(event)
+#             return
 
 def build_media_group(media_list: list[dict]):
     result = []
@@ -141,3 +140,43 @@ def build_media_group(media_list: list[dict]):
         elif item["type"] == "video":
             result.append(InputMediaVideo(media=item["file_id"]))
     return result
+
+class AlbumMiddleware(BaseMiddleware):
+    def __init__(self, latency: float = 0.2):
+        self.latency = latency
+        self.album_data: dict[str, list[Message]] = {}
+
+    async def __call__(
+        self,
+        handler: Callable[[Message, dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: dict[str, Any]) -> Any:
+        if not isinstance(event, Message):
+            return await handler(event, data)
+
+        if not event.media_group_id:
+            if event.photo or event.video or event.video_note:
+                data["user_media"] = self._extract_media([event])
+            return await handler(event, data)
+
+        try:
+            self.album_data[event.media_group_id].append(event)
+            return
+        except KeyError:
+            self.album_data[event.media_group_id] = [event]
+            await asyncio.sleep(self.latency)
+            album_messages = self.album_data.pop(event.media_group_id)
+            data["user_media"] = self._extract_media(album_messages)
+        return await handler(event, data)
+    @staticmethod
+    def _extract_media(messages: list[Message]) -> list[dict]:
+        user_media = []
+        for msg in messages:
+            if msg.photo:
+                photo = msg.photo[-1]
+                user_media.append({"media_type": "PHOTO", "file_id": photo.file_id})
+            elif msg.video:
+                user_media.append({"media_type": "VIDEO", "file_id": msg.video.file_id})
+            elif msg.video_note:
+                user_media.append({"media_type": "VIDEO_NOTE", "file_id": msg.video_note.file_id})
+        return user_media

@@ -7,7 +7,8 @@ class StateRegistration(StatesGroup):
     city = State()
     description = State()
     looking_for = State()
-    photo = State()
+    media = State()
+    confirm = State()
     make_anketa_again = State()
 
 class StateMenu(StatesGroup):

@@ -4,7 +4,7 @@ import json
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove, WebAppInfo
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove
 from sqlalchemy import func
 
 from src.checksclasses.decorators import ask, clear, track, track_message
@@ -49,9 +49,13 @@ async def command_start_handler(message: Message, state: FSMContext):
     profile = await get_profile(message.from_user.id)
     if profile:
         profile = await get_profile_text(tg_id=message.from_user.id)
-        media_list = await get_profile_media(tg_id=message.from_user.id)
-        if media_list:
-            media = build_media_group(media_list)
+        profile_media = await get_profile_media(tg_id=message.from_user.id)
+        media_list = [
+            {"type": m.media_type.value, "file_id": m.file_id}
+            for m in profile_media
+        ]
+        media = build_media_group(media_list)
+        if media:
             sent_msgs = []
             sent_msgs.append(await message.answer("Так выглядит твоя анкета!"))
             media_messages = await message.answer_media_group(media=media)
@@ -142,54 +146,38 @@ async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot:
         return await callback_query.message.answer("Кого вы ищете", reply_markup=choose_looking_for)
     await clear(callback_query.message.chat.id, bot)
     await state.update_data(looking_for=callback_query.data)
-    await state.set_state(StateRegistration.photo)
+    await state.set_state(StateRegistration.media)
     bot_msg = await ask(callback_query.message, "Теперь пришлите фото/видео до 3 штук")
     return bot_msg
 
 
-@router.message(StateRegistration.photo, flags={"album": True})
+@router.message(StateRegistration.media, F.photo | F.video | F.video_note)
 @track_message
-async def reg_media(message: Message, album: list[Message], state: FSMContext, bot: Bot):
+async def reg_media(message: Message, state: FSMContext, bot: Bot, user_media: list = None):
+    if not user_media:
+        return
     await clear(message.chat.id, bot)
-    media_group_list = []
-    saved_media_data = []
-    for m in album:
-        if m.photo:
-            file_id = m.photo[-1].file_id
-            media_group_list.append(InputMediaPhoto(media=file_id))
-            saved_media_data.append({"type": "photo", "file_id": file_id})
-        elif m.video:
-            file_id = m.video.file_id
-            media_group_list.append(InputMediaVideo(media=file_id))
-            saved_media_data.append({"type": "video", "file_id": file_id})
-        elif m.video_note:
-            file_id = m.video_note.file_id
-            saved_media_data.append({"type": "video_note", "file_id": file_id})
-
-            await m.answer_video_note(video_note=file_id)
-    if media_group_list:
-        first = media_group_list[0]
-        if isinstance(first, InputMediaPhoto):
-            media_group_list[0] = InputMediaPhoto(
-                media=first.media
-            )
-        elif isinstance(first, InputMediaVideo):
-            media_group_list[0] = InputMediaVideo(media=first.media)
-    await state.update_data(user_media_list=saved_media_data)
+    await state.update_data(user_media_list=user_media)
     data = await state.get_data()
     bot_msg = await ask(message, "Вот как выглядит твоя анкета!", reply_markup=ReplyKeyboardRemove())
     bot_msg2 = await ask(message, f"{data['name']}, {data['age']}, {data['city']}\n{data['description']}")
     bot_msg3 = await ask(message, "Все верно?", reply_markup=confirm_kb)
+
+    await state.set_state(StateRegistration.confirm)
+    return [bot_msg, bot_msg2, bot_msg3]
+
+@router.message(StateRegistration.confirm, F.text.in_({"Да", "Нет"}))
+@track_message
+async def reg_confirm(message: Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
     if message.text == "Да":
+        await clear(message.chat.id, bot)
         success = await save_user_in_db(fsm_data=data)
         await message.answer("Отлично анкета сохранена!", reply_markup=menu_kb)
         await state.set_state(StateMenu.menu)
+    else:
         await clear(message.chat.id, bot)
-    if message.text == "Нет":
         await message.answer("Выберите какой пункт хотите исправить:\n", reply_markup=anketa_kb)
-    return [bot_msg, bot_msg2, bot_msg3]
-
-
 
 
 

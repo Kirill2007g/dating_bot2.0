@@ -20,8 +20,13 @@ async def menu(message: Message, state: FSMContext):
         profile_text = await get_profile_text(message.from_user.id)
         profile_media = await get_profile_media(message.from_user.id)
         if profile_media:
-            media = build_media_group(profile_media)
-            await message.answer_media_group(media=media)
+            media_list = [
+                {"type": m.media_type.value, "file_id": m.file_id}
+                for m in profile_media
+            ]
+            media_group = build_media_group(media_list)
+            if media_group:
+                await message.answer_media_group(media_group)
         await message.answer(profile_text)
 
 

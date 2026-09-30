@@ -30,6 +30,7 @@ async def clear(chat_id, bot):
     except Exception as e:
         print(f"Error deleting messages for chat {chat_id}: {e}")
     _messages[chat_id] = []
+    print(f"Deleted messages for chat {chat_id}: {ids}")
 
 
 

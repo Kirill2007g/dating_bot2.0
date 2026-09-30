@@ -41,19 +41,24 @@ async def save_user_in_db(fsm_data):
     looking_for = fsm_data.get('looking_for')
     media_list = fsm_data.get('user_media_list', [])
 
+    _MEDIA_TYPE_MAP = {
+                "PHOTO": MediaType.PHOTO,
+                "VIDEO": MediaType.VIDEO,
+                "VIDEO_NOTE": MediaType.CIRCLE,
+            }
     #table users
     async with async_session() as session:
+
         try:
             db_media = []
-            for position, media_item in enumerate(media_list):
+            for media_item in media_list:
                 m_type = media_item.get("media_type")
                 f_id = media_item.get("file_id")
                 db_media.append(
                     UserMedia(
 
-                        media_type=MediaType(m_type),
+                        media_type=_MEDIA_TYPE_MAP[m_type],
                         file_id=f_id,
-                        position=position
                     )
                 )
             new_user = User(
@@ -91,12 +96,31 @@ async def get_show_form(tg_id: int):
 
 async def get_profile_text(tg_id: int):
     user = await get_profile(tg_id)
-    return user.show_profile_text if user else None
+    return user.show_aclt if user else None
 
-
-async def get_profile_media(tg_id: int):
+async def get_profile_media(tg_id: int) -> list[UserMedia]:
     user = await get_profile(tg_id)
-    return user.show_profile_media if user else None
+    if user is None:
+        return []
+    async with async_session() as session:
+        user_query = (
+            select(UserMedia)
+            .where(UserMedia.user_id == user.id)
+        )
+        user_result = await session.execute(user_query)
+        return list(user_result.scalars().all())
+# async def get_profile_media(tg_id: int):
+#     user = await get_profile(tg_id)
+#     user_id = user.show_userid
+#     async with async_session() as session:
+#         user_query = (
+#             select(UserMedia)
+#             .where(UserMedia.id == user_id)
+
+#         )
+#         user_result = await session.execute(user_query)
+#         return user_result
+#     # return UserMedia.return_user_media if user else None
 
 
 

@@ -58,26 +58,29 @@ class User(Base):
     )
     media: Mapped[list["UserMedia"]] = relationship(
         back_populates="user",
-        order_by="UserMedia.position",
+        # order_by="UserMedia.position",
         cascade="all, delete-orphan",
     )
     #show age city looking_for tg_id
     @property
     def show_aclt(self):
-        return [self.age, self.city, self.looking_for, self.tg_id]
+        return f"{self.age, self.city, self.looking_for, self.tg_id}"
 
-    #show profile text name age city description
     @property
-    def show_profile_text(self):
-        return f"{self.name}, {self.age}, {self.city}\n {self.description}"
+    def show_userid(self):
+        return self.id
+    #show profile text name age city description
+    # @property
+    # def show_profile_text(self):
+    #     return f"{self.name}, {self.age}, {self.city}\n {self.description}"
 
     @property
     def show_form(self):
         return f"{self.name} {self.age} {self.city}"
 
-    @property
-    def show_profile_media(self):
-        return self.media
+    # @property
+    # def show_profile_media(self):
+    #     return self.media
 
     def __repr__(self):
         return (f"<User:\n"
@@ -92,18 +95,18 @@ class UserMedia(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     media_type: Mapped[MediaType] = mapped_column( nullable=False)
     file_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     user: Mapped["User"] = relationship(back_populates="media")
-    __table_args__ = (
-        UniqueConstraint("user_id", "position", name="uq_user_media_position"),
-    )
+    # __table_args__ = (
+    #     UniqueConstraint("user_id", "position", name="uq_user_media_position"),
+    # )
 
     @property
     def return_user_media(self):
-        pass
+        return self.file_id
 
     def __repr__(self):
-        return f"<UserMedia id={self.id} user_id={self.user_id} type={self.media_type} file_id={self.file_id}pos={self.position}>"
+        return f"<UserMedia id={self.id} user_id={self.user_id} type={self.media_type} file_id={self.file_id}>"
 
 class Action(Base):
     __tablename__ = "actions"
