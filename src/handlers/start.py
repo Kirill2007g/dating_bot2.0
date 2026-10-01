@@ -69,6 +69,16 @@ async def command_start_handler(message: Message, state: FSMContext):
     return sent_msg
 
 
+@router.message(Command("cancel"))
+async def cancel(message: Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is None:
+        await message.answer("can not cancel ")
+        return
+    await state.clear()
+    await message.answer("canceled", reply_markup=menu_kb)
+    await state.set_state(StateMenu.menu)
+
 @router.message(F.text == "Заполнить анкету")
 @track_message
 async def start_registration(message: Message, state: FSMContext, bot: Bot):

@@ -1,8 +1,9 @@
-
+import inspect
 from functools import wraps
 from aiogram.types import Message
 
-_messages: dict[int, list[int]] = {} # {5, [1]}
+_messages: dict[int, list[int]] = {}
+
 def track(message):
     if not message:
         return
@@ -33,22 +34,24 @@ async def clear(chat_id, bot):
     print(f"Deleted messages for chat {chat_id}: {ids}")
 
 
-
 def track_message(func):
+    wants_tracked = "tracked_messages" in inspect.signature(func).parameters
+
     @wraps(func)
     async def wrapper(*args, **kwargs):
-
         message = next((arg for arg in args if isinstance(arg, Message)), None)
-        album = next((arg for arg in args if isinstance(arg, list) and arg and isinstance(arg, Message)), None)
+        album = next((arg for arg in args if isinstance(arg, list) and arg and isinstance(arg[0], Message)), None)
 
         if message:
             track(message)
         elif album:
             track(album)
 
+        if wants_tracked:
+            chat_id = message.chat.id if message else (album[0].chat.id if album else None)
+            kwargs["tracked_messages"] = list(_messages.get(chat_id, [])) if chat_id is not None else []
 
         result = await func(*args, **kwargs)
-
 
         if result:
             if isinstance(result, list):

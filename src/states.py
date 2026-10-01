@@ -11,11 +11,13 @@ class StateRegistration(StatesGroup):
     confirm = State()
     make_anketa_again = State()
 
+
 class StateMenu(StatesGroup):
     menu = State()
     show_profile = State()
     check_profiles = State()
     settings = State()
-    anketa = State
+    anketa = State()
+    edit_multiple = State()
 
 
