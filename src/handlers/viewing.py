@@ -2,7 +2,8 @@ from aiogram import F, Bot, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove
-from src.checksclasses.decorators import track, track_message, ask, clear
+from src.checksclasses.decorators import (track, track_message, ask,
+                                           clear,  collect_selection)
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -24,7 +25,9 @@ ANKETA_ACTIONS: dict[str, State] = {
     "Изменить 'Кого вы ищете'": StateRegistration.looking_for,
     "Изменить 'Медиа'": StateRegistration.media,
 }
-
+FIELD_ORDER = {"name", "age", "gender",
+               "city", "description", "looking_for",
+               "media"}
 fsm_data_dict = {
     "name": None,
     "age": None,
@@ -34,29 +37,47 @@ fsm_data_dict = {
     "looking_for": None,
     "media": None,
 }
-
+FIELD_STATES = {
+    "name": StateRegistration.name,
+    "age": StateRegistration.age,
+    "gender": StateRegistration.gender,
+    "city": StateRegistration.city,
+    "description": StateRegistration.description,
+    "looking_for": StateRegistration.looking_for,
+    "media": StateRegistration.media,
+}
 dassdf = {
-    "name": "Изменить Имя",
-    "age": "Изменить Возраст",
-    "gender": "Изменить Пол",
-    "city": "Изменить Город",
-    "description": "Изменить О себе",
-    "looking_for": "Изменить Кого вы ищете",
-    "media": "Изменить Медиа",
+    "name": "Изменить 'Имя'",
+    "age": "Изменить 'Возраст'",
+    "gender": "Изменить 'Пол'",
+    "city": "Изменить 'Город'",
+    "description": "Изменить 'О себе'",
+    "looking_for": "Изменить 'Кого вы ищете'",
+    "media": "Изменить 'Медиа'",
+}
+
+FIELD_PROMPTS = {
+    "name": "Как тебя зовут?",
+    "age": "Сколько тебе лет?",
+    "gender": "Укажи пол",
+    "city": "Теперь напиши свой город",
+    "description": "Теперь напишите о себе",
+    "looking_for": "Кого вы ищете",
+    "media": "Пришли фото/видео до 3 штук",
 }
 
 button_to_key = {v: k for k, v in dassdf.items()}
 
-def process_selection(user_message: str, data: dict):
-    if user_message == "ВСЕ!":
-        print("Выбор завершен! Итоговый словарь:", data)
-        return False
+# def process_selection(user_message: str, data: dict):
+#     if user_message == "ВСЕ!":
+#         print("Выбор завершен! Итоговый словарь:", data)
+#         return False
 
-    if user_message in button_to_key:
-        key = button_to_key[user_message]
-        data[key] = True
-        print(f"Поле {key} отмечено как True")
-    return True
+#     if user_message in button_to_key:
+#         key = button_to_key[user_message]
+#         data[key] = True
+#         print(f"Поле {key} отмечено как True")
+#     return True
 
 @router.message(StateMenu.menu)
 async def menu(message: Message, state: FSMContext):
@@ -114,12 +135,38 @@ async def handle_actions(message: Message, state: FSMContext, bot: Bot):
     await clear(message.chat.id, bot)
 
 
+# @router.message(StateMenu.edit_multiple)
+# @track_message
+# @collect_selection
+# async def change_many_options_in_anketa(message: Message, state: FSMContext, bot: Bot, tracked_messages: list[int], ready_lst):
+#     # await process_selection(user_message=message.text, data=fsm_data_dict)
+#     await message.answer("+1", reply_markup=anketa_kb_multiple)
+#     # await message.answer(f"ЗАТРЕКАНЫ: {tracked_messages}")
+#     # await message.answer(ready_lst)
+
 @router.message(StateMenu.edit_multiple)
 @track_message
-async def change_many_options_in_anketa(message: Message, state: FSMContext, bot: Bot, tracked_messages: list[int]):
-    await process_selection(user_message=message.text, data=fsm_data_dict)
-    await message.answer("+1", reply_markup=anketa_kb_multiple)
-    await message.answer(f"ЗАТРЕКАНЫ: {tracked_messages}")
+@collect_selection
+async def change_many_options_in_anketa(
+    message: Message,
+    state: FSMContext,
+    bot: Bot,
+    tracked_messages: list,
+    selected_fields: list,
+    finished: bool,
+):
+    if finished:
+        if not selected_fields:
+            await message.answer("Ты ничего не выбрал.Выбери хотя бы один пункт")
+            await state.update_data(selected_fields=[])
+            return
+        field_keys = [button_to_key[btn] for btn in selected_fields]
+        first_key, *rest = field_keys
+        await state.update_data(selected_fields=[], edit_queue=rest)
+        await state.set_state(FIELD_STATES[first_key])
+        await message.answer(FIELD_PROMPTS[first_key], reply_markup=ReplyKeyboardRemove())
+        return
+    await message.answer(f"Пока выбрано: {selected_fields}", reply_markup=anketa_kb_multiple)
 
 
 @router.message(F.text == "❤️")

@@ -1,8 +1,87 @@
 import inspect
 from functools import wraps
 from aiogram.types import Message
+from aiogram.fsm.context import FSMContext
+FIELD_ORDER = {"name", "age", "gender",
+               "city", "description", "looking_for",
+               "media"}
+fsm_data_dict = {
+    "name": None,
+    "age": None,
+    "gender": None,
+    "city": None,
+    "description": None,
+    "looking_for": None,
+    "media": None,
+}
 
+FIELD_PROMPTS = {
+    "name": "Как тебя зовут?",
+    "age": "Сколько тебе лет?",
+    "gender": "Укажи пол",
+    "city": "Теперь напиши свой город",
+    "description": "Теперь напишите о себе",
+    "looking_for": "Кого вы ищете",
+    "media": "Пришли фото/видео до 3 штук",
+}
+dassdf = {
+    "name": "Изменить 'Имя'",
+    "age": "Изменить 'Возраст'",
+    "gender": "Изменить 'Пол'",
+    "city": "Изменить 'Город'",
+    "description": "Изменить 'О себе'",
+    "looking_for": "Изменить 'Кого вы ищете'",
+    "media": "Изменить 'Медиа'",
+}
+
+button_to_key = {v: k for k, v in dassdf.items()}
 _messages: dict[int, list[int]] = {}
+from src.states import State, StateRegistration, StateMenu
+ANKETA_ACTIONS: dict[str, State] = {
+    "Заполнить анкету заново": StateRegistration.make_anketa_again,
+    "Изменить несколько пунктов": StateMenu.edit_multiple,
+    "Изменить 'Имя'": StateRegistration.name,
+    "Изменить 'Возраст'": StateRegistration.age,
+    "Изменить 'Пол'": StateRegistration.gender,
+    "Изменить 'Город'": StateRegistration.city,
+    "Изменить 'О себе'": StateRegistration.description,
+    "Изменить 'Кого вы ищете'": StateRegistration.looking_for,
+    "Изменить 'Медиа'": StateRegistration.media,
+}
+def map_sentences_to_states(sentences: list[str], actions: dict = ANKETA_ACTIONS):
+    if 'ВСЕ!' in sentences:
+        sentences.pop(-1)
+        return [actions.get(sentence, sentence) for sentence in sentences]
+def edit_multiple__(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        sentences_list = next(
+            (arg for arg in args if isinstance(arg, list) and all(isinstance(x, str) for x in arg)),
+            None
+        )
+        if sentences_list:
+            ready_lst = map_sentences_to_states(sentences_list)
+            kwargs["ready_lst"] = ready_lst
+        return await func(*args, **kwargs)
+    return wrapper
+
+def collect_selection(func):
+    @wraps(func)
+    async def wrapper(message: Message, state: FSMContext, *args, **kwargs):
+        print(f"DEBUG raw={message.text!r} equals_vse={message.text == 'ВСЕ!'}")
+        data = await state.get_data()
+        selected = list(data.get("selected_fields", []))
+        if message.text == "ВСЕ!":
+            kwargs["selected_fields"] = selected
+            kwargs["finished"] = True
+        else:
+            if message.text in button_to_key and message.text not in selected:
+                selected.append(message.text)
+                await state.update_data(selected_fields=selected)
+            kwargs["selected_fields"] = selected
+            kwargs['finished'] = False
+        return await func(message, state, *args, **kwargs)
+    return wrapper
 
 def track(message):
     if not message:
