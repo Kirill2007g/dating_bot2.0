@@ -2,9 +2,13 @@ import inspect
 from functools import wraps
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
+from src.states import State, StateRegistration, StateMenu
 FIELD_ORDER = {"name", "age", "gender",
                "city", "description", "looking_for",
                "media"}
+FIELD_ORDER_ = (StateRegistration.name, StateRegistration.age, StateRegistration.gender,
+                 StateRegistration.city, StateRegistration.description, StateRegistration.looking_for,
+                 StateRegistration.media)
 fsm_data_dict = {
     "name": None,
     "age": None,
@@ -35,6 +39,8 @@ dassdf = {
 }
 
 button_to_key = {v: k for k, v in dassdf.items()}
+
+
 _messages: dict[int, list[int]] = {}
 from src.states import State, StateRegistration, StateMenu
 ANKETA_ACTIONS: dict[str, State] = {
@@ -48,10 +54,25 @@ ANKETA_ACTIONS: dict[str, State] = {
     "Изменить 'Кого вы ищете'": StateRegistration.looking_for,
     "Изменить 'Медиа'": StateRegistration.media,
 }
+prompts = {
+        StateRegistration.name: "Как тебя зовут?",
+        StateRegistration.age: "Сколько тебе лет?",
+        StateRegistration.gender: "Укажи пол",
+        StateRegistration.city: "В каком ты городе?",
+        StateRegistration.description: "Расскажи о себе",
+        StateRegistration.looking_for: "Кого ты ищешь?",
+        StateRegistration.media: "Пришли фото или видео",
+        StateRegistration.make_anketa_again: "Как тебя зовут?",
+        StateMenu.edit_multiple: "Вам дан выбор из пунктов которые вы можете изменить" \
+    ", отправляйте в чат по 1 пункту, а когда закончите нажмите на 'ВСЕ!'",
+    }
 def map_sentences_to_states(sentences: list[str], actions: dict = ANKETA_ACTIONS):
-    if 'ВСЕ!' in sentences:
-        sentences.pop(-1)
-        return [actions.get(sentence, sentence) for sentence in sentences]
+    sentences_copy = sentences.copy()
+    if 'ВСЕ!' in sentences_copy:
+        sentences_copy.remove('ВСЕ!')
+    states = [actions.get(sentence, sentence) for sentence in sentences_copy]
+    states.sort(key=lambda state: FIELD_ORDER_.index(state) if state in FIELD_ORDER_ else 0)
+    return states
 def edit_multiple__(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
@@ -64,6 +85,15 @@ def edit_multiple__(func):
             kwargs["ready_lst"] = ready_lst
         return await func(*args, **kwargs)
     return wrapper
+def edit_multiple_y(func):
+    @wraps(func)
+    async def wrapper(states: list[State], *args, **kwargs):
+        if not states:
+            return await func(*args, **kwargs)
+        else:
+            current_state = next((state for state in states if isinstance(state, State)), None)
+            current_reply = prompts.get(current_state, "Не нашли соответствующее состояние")
+
 
 def collect_selection(func):
     @wraps(func)
@@ -71,9 +101,10 @@ def collect_selection(func):
         print(f"DEBUG raw={message.text!r} equals_vse={message.text == 'ВСЕ!'}")
         data = await state.get_data()
         selected = list(data.get("selected_fields", []))
-        if message.text == "ВСЕ!":
+        if message.text == 'ВСЕ!':
             kwargs["selected_fields"] = selected
             kwargs["finished"] = True
+            kwargs["selected_fields"].append('ВСЕ!')
         else:
             if message.text in button_to_key and message.text not in selected:
                 selected.append(message.text)

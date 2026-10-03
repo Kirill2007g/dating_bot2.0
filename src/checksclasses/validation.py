@@ -132,13 +132,22 @@ class IsValidLookingfor(BaseFilter):
 #             self.storage[mid].append(event)
 #             return
 
-def build_media_group(media_list: list[dict]):
+def build_media_group(media_list: list) -> list:
     result = []
     for item in media_list:
-        if item["type"] == "photo":
-            result.append(InputMediaPhoto(media=item["file_id"]))
-        elif item["type"] == "video":
-            result.append(InputMediaVideo(media=item["file_id"]))
+        if isinstance(item, dict):
+            m_type = item.get("type") or item.get("media_type")
+            f_id = item.get("file_id")
+        else:
+            m_type = item.media_type.value if hasattr(item.media_type, 'value') else item.media_type
+            f_id = item.file_id
+        if m_type:
+            m_type = m_type.lower()
+        if m_type in ("photo", "photo"):
+            result.append(InputMediaPhoto(media=f_id))
+        elif m_type in ("video", "video_note", "circle"):
+            result.append(InputMediaVideo(media=f_id))
+
     return result
 
 class AlbumMiddleware(BaseMiddleware):

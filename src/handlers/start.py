@@ -163,18 +163,21 @@ async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot:
 
 @router.message(StateRegistration.media, F.photo | F.video | F.video_note)
 @track_message
-async def reg_media(message: Message, state: FSMContext, bot: Bot, user_media: list = None):
+async def reg_media(message: Message, state: FSMContext, bot: Bot, user_media):
     if not user_media:
         return
     await clear(message.chat.id, bot)
     await state.update_data(user_media_list=user_media)
     data = await state.get_data()
-    bot_msg = await ask(message, "Вот как выглядит твоя анкета!", reply_markup=ReplyKeyboardRemove())
-    bot_msg2 = await ask(message, f"{data['name']}, {data['age']}, {data['city']}\n{data['description']}")
-    bot_msg3 = await ask(message, "Все верно?", reply_markup=confirm_kb)
+    profile_media = build_media_group(user_media)
+    if profile_media:
+        bot_msg = await ask(message, "Вот как выглядит твоя анкета!", reply_markup=ReplyKeyboardRemove())
+        bot_msg2 = await message.answer_media_group(profile_media)
+        bot_msg2 = await ask(message, f"{data['name']}, {data['age']}, {data['city']}\n{data['description']}")
+        bot_msg3 = await ask(message, "Все верно?", reply_markup=confirm_kb)
+        await state.set_state(StateRegistration.confirm)
+        return [bot_msg, bot_msg2, bot_msg3]
 
-    await state.set_state(StateRegistration.confirm)
-    return [bot_msg, bot_msg2, bot_msg3]
 
 @router.message(StateRegistration.confirm, F.text.in_({"Да", "Нет"}))
 @track_message

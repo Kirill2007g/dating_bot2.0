@@ -2,20 +2,20 @@ from aiogram import F, Bot, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove
-from src.checksclasses.decorators import (track, track_message, ask,
+from src.checksclasses.decorators import ( track, track_message, ask,
                                            clear,  collect_selection)
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-from src.handlers.keyboards import check_profiles, anketa_kb, anketa_kb_multiple
+from src.handlers.keyboards import check_profiles, anketa_kb, anketa_kb_multiple, choose_gender, choose_looking_for
 from src.db.db_queries import get_profile, get_candidates, get_show_form, get_profile_media, get_profile_text
 from src.states import StateMenu, StateRegistration
 from src.checksclasses.validation import build_media_group
 from aiogram.fsm.state import State
 router = Router()
 ANKETA_ACTIONS: dict[str, State] = {
-    "Заполнить анкету заново": StateRegistration.make_anketa_again,
+    "Заполнить анкету заново": StateRegistration.name,
     "Изменить несколько пунктов": StateMenu.edit_multiple,
     "Изменить 'Имя'": StateRegistration.name,
     "Изменить 'Возраст'": StateRegistration.age,
@@ -68,16 +68,6 @@ FIELD_PROMPTS = {
 
 button_to_key = {v: k for k, v in dassdf.items()}
 
-# def process_selection(user_message: str, data: dict):
-#     if user_message == "ВСЕ!":
-#         print("Выбор завершен! Итоговый словарь:", data)
-#         return False
-
-#     if user_message in button_to_key:
-#         key = button_to_key[user_message]
-#         data[key] = True
-#         print(f"Поле {key} отмечено как True")
-#     return True
 
 @router.message(StateMenu.menu)
 async def menu(message: Message, state: FSMContext):
@@ -124,26 +114,41 @@ async def handle_actions(message: Message, state: FSMContext, bot: Bot):
         StateRegistration.description: "Расскажи о себе",
         StateRegistration.looking_for: "Кого ты ищешь?",
         StateRegistration.media: "Пришли фото или видео",
-        StateRegistration.make_anketa_again: "Как тебя зовут?",
+        StateRegistration.name: "Как тебя зовут?",
         StateMenu.edit_multiple: "Вам дан выбор из пунктов которые вы можете изменить" \
     ", отправляйте в чат по 1 пункту, а когда закончите нажмите на 'ВСЕ!'",
     }
     keyboards = {
         StateMenu.edit_multiple: anketa_kb_multiple,
+        StateRegistration.gender: choose_gender,
+        StateRegistration.looking_for: choose_looking_for,
     }
     await message.answer(prompts.get(new_state, "Продолжаем..."), reply_markup=keyboards.get(new_state))
     await clear(message.chat.id, bot)
 
-
-# @router.message(StateMenu.edit_multiple)
-# @track_message
-# @collect_selection
-# async def change_many_options_in_anketa(message: Message, state: FSMContext, bot: Bot, tracked_messages: list[int], ready_lst):
-#     # await process_selection(user_message=message.text, data=fsm_data_dict)
-#     await message.answer("+1", reply_markup=anketa_kb_multiple)
-#     # await message.answer(f"ЗАТРЕКАНЫ: {tracked_messages}")
-#     # await message.answer(ready_lst)
-
+FIELD_ORDER_ = (StateRegistration.name, StateRegistration.age, StateRegistration.gender,
+                 StateRegistration.city, StateRegistration.description, StateRegistration.looking_for,
+                 StateRegistration.media)
+anketa_actions_reverse = {v: k for k, v in ANKETA_ACTIONS.items()}
+prompts = {
+        StateRegistration.name: "Как тебя зовут?",
+        StateRegistration.age: "Сколько тебе лет?",
+        StateRegistration.gender: "Укажи пол",
+        StateRegistration.city: "В каком ты городе?",
+        StateRegistration.description: "Расскажи о себе",
+        StateRegistration.looking_for: "Кого ты ищешь?",
+        StateRegistration.media: "Пришли фото или видео",
+        StateRegistration.make_anketa_again: "Как тебя зовут?",
+        StateMenu.edit_multiple: "Вам дан выбор из пунктов которые вы можете изменить" \
+    ", отправляйте в чат по 1 пункту, а когда закончите нажмите на 'ВСЕ!'",
+    }
+def map_sentences_to_states(sentences: list[str], actions: dict = ANKETA_ACTIONS):
+    sentences_copy = sentences.copy()
+    if 'ВСЕ!' in sentences_copy:
+        sentences_copy.remove('ВСЕ!')
+    states = [actions.get(sentence, sentence) for sentence in sentences_copy]
+    states.sort(key=lambda state: FIELD_ORDER_.index(state) if state in FIELD_ORDER_ else 0)
+    return states
 @router.message(StateMenu.edit_multiple)
 @track_message
 @collect_selection
@@ -160,12 +165,20 @@ async def change_many_options_in_anketa(
             await message.answer("Ты ничего не выбрал.Выбери хотя бы один пункт")
             await state.update_data(selected_fields=[])
             return
-        field_keys = [button_to_key[btn] for btn in selected_fields]
-        first_key, *rest = field_keys
-        await state.update_data(selected_fields=[], edit_queue=rest)
-        await state.set_state(FIELD_STATES[first_key])
-        await message.answer(FIELD_PROMPTS[first_key], reply_markup=ReplyKeyboardRemove())
-        return
+        mapped_states = map_sentences_to_states(selected_fields)
+        new_state = mapped_states[0]
+        await state.update_data(new_state=new_state)
+        new_state_reply = prompts.get(new_state, "Не нашли соответствующее состояние")
+        await message.answer(f"{new_state_reply}")
+        return await message.answer(f"selected_fields: {selected_fields}\nMapped: {map_sentences_to_states(selected_fields)}")
+        # mapped = map_sentences_to_states(selected_fields)
+        # await message.answer(f"Mapped: {mapped}")
+        # field_keys = [button_to_key[btn] for btn in selected_fields]
+        # first_key, *rest = field_keys
+        # await state.update_data(selected_fields=[], edit_queue=rest)
+        # await state.set_state(FIELD_STATES[first_key])
+        # await message.answer(FIELD_PROMPTS[first_key], reply_markup=ReplyKeyboardRemove())
+        # return
     await message.answer(f"Пока выбрано: {selected_fields}", reply_markup=anketa_kb_multiple)
 
 

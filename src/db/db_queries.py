@@ -1,5 +1,5 @@
 from src.db.models import CityMapping, MediaType, User, Action, SeenProfiles, UserMedia
-from sqlalchemy import func, select, insert, update
+from sqlalchemy import delete, func, select, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.database import async_session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -46,9 +46,33 @@ async def save_user_in_db(fsm_data):
                 "VIDEO": MediaType.VIDEO,
                 "VIDEO_NOTE": MediaType.CIRCLE,
             }
-    #table users
-    async with async_session() as session:
 
+    async with async_session() as session:
+        check_existing_user = await session.execute(
+            select(User).where(User.tg_id == tg_id)
+        )
+        existing_user = check_existing_user.scalar_one_or_none()
+        if existing_user:
+            existing_user.name = name
+            existing_user.age = age
+            existing_user.gender = gender
+            existing_user.city = city
+            existing_user.description = description
+            existing_user.looking_for = looking_for
+            await session.execute(
+                delete(UserMedia).where(UserMedia.user_id == existing_user.id)
+            )
+            for media_item in media_list:
+                m_type = media_item.get("media_type")
+                f_id = media_item.get("file_id")
+                new_media = UserMedia(
+                    user_id=existing_user.id,
+                    media_type=_MEDIA_TYPE_MAP[m_type],
+                    file_id=f_id,
+                )
+                session.add(new_media)
+            await session.commit()
+            return True
         try:
             db_media = []
             for media_item in media_list:
