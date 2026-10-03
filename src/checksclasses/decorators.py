@@ -3,6 +3,7 @@ from functools import wraps
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from src.states import State, StateRegistration, StateMenu
+from src.db.db_queries import update_user
 FIELD_ORDER = {"name", "age", "gender",
                "city", "description", "looking_for",
                "media"}
@@ -66,6 +67,46 @@ prompts = {
         StateMenu.edit_multiple: "Вам дан выбор из пунктов которые вы можете изменить" \
     ", отправляйте в чат по 1 пункту, а когда закончите нажмите на 'ВСЕ!'",
     }
+
+
+# Будет 2 декоратора, один если выбран Один пункт, другой если выбрано несколько пунктов
+#|
+# if_one_selected - декоратор для функции которая вызывается если выбран один пункт
+def if_one_selected(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        state = next((arg for arg in args if isinstance(arg, FSMContext)), None)
+        message = next((arg for arg in args if isinstance(arg, Message)), None)
+        result = await func(*args, **kwargs)
+        if result and state:
+            fsm_data = await state.get_data()
+            is_single_edit = fsm_data.get("is_single_edit", False)
+            print(f"[ДЕКОРАТОР] Хэндлер вернул True. Проверяем флаг одиночного изменения: {is_single_edit}")
+            if is_single_edit:
+                print("[ДЕКОРАТОР] Условия совпали! Обновляем базу данных")
+                db_success = await update_user(data=fsm_data)
+                if db_success:
+                    print("[ДЕКОРАТОР] База данных успешно обновлена!")
+                else:
+                    print("[ДЕКОРАТОР] Ошибка при обновлении базы данных!")
+                await state.update_data(is_single_edit=False)
+                await state.set_state(StateMenu.anketa)
+                bot_msg_menu = await message.answer("Вы вернулись в меню анкеты.", reply_markup=anketa_kb)
+                return bot_msg_menu
+
+        return result
+    return wrapper
+
+
+#|
+# if_multiple_selected - декоратор для функции которая вызывается если выбрано несколько пунктов
+def if_multiple_selected(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        return await func(*args, **kwargs)
+    return wrapper
+
+
 def map_sentences_to_states(sentences: list[str], actions: dict = ANKETA_ACTIONS):
     sentences_copy = sentences.copy()
     if 'ВСЕ!' in sentences_copy:
@@ -73,26 +114,26 @@ def map_sentences_to_states(sentences: list[str], actions: dict = ANKETA_ACTIONS
     states = [actions.get(sentence, sentence) for sentence in sentences_copy]
     states.sort(key=lambda state: FIELD_ORDER_.index(state) if state in FIELD_ORDER_ else 0)
     return states
-def edit_multiple__(func):
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        sentences_list = next(
-            (arg for arg in args if isinstance(arg, list) and all(isinstance(x, str) for x in arg)),
-            None
-        )
-        if sentences_list:
-            ready_lst = map_sentences_to_states(sentences_list)
-            kwargs["ready_lst"] = ready_lst
-        return await func(*args, **kwargs)
-    return wrapper
-def edit_multiple_y(func):
-    @wraps(func)
-    async def wrapper(states: list[State], *args, **kwargs):
-        if not states:
-            return await func(*args, **kwargs)
-        else:
-            current_state = next((state for state in states if isinstance(state, State)), None)
-            current_reply = prompts.get(current_state, "Не нашли соответствующее состояние")
+# def edit_multiple__(func):
+#     @wraps(func)
+#     async def wrapper(*args, **kwargs):
+#         sentences_list = next(
+#             (arg for arg in args if isinstance(arg, list) and all(isinstance(x, str) for x in arg)),
+#             None
+#         )
+#         if sentences_list:
+#             ready_lst = map_sentences_to_states(sentences_list)
+#             kwargs["ready_lst"] = ready_lst
+#         return await func(*args, **kwargs)
+#     return wrapper
+# def edit_multiple_y(func):
+#     @wraps(func)
+#     async def wrapper(states: list[State], *args, **kwargs):
+#         if not states:
+#             return await func(*args, **kwargs)
+#         else:
+#             current_state = next((state for state in states if isinstance(state, State)), None)
+#             current_reply = prompts.get(current_state, "Не нашли соответствующее состояние")
 
 
 def collect_selection(func):
@@ -114,6 +155,9 @@ def collect_selection(func):
         return await func(message, state, *args, **kwargs)
     return wrapper
 
+# Функция для сохранения ID сообщений в глобальном словаре _messages.
+# Универсальна: может принимать как одно сообщение (Message), так и список (list[Message]).
+# Используется для очистки истории переписки в чате.
 def track(message):
     if not message:
         return
@@ -127,11 +171,15 @@ def track(message):
             ids.append(m.message_id)
     print(f"Tracked messages for chat {chat_id}: {ids}")
 
+# Функция-помощник для отправки текстовых сообщений ботом.
+# Автоматически сохраняет ID отправленного ботом сообщения в словарь _messages для последующего удаления.
 async def ask(message, text, **kwargs):
     sent = await message.answer(text, **kwargs)
     _messages.setdefault(message.chat.id, []).append(sent.message_id)
     return sent
 
+# Функция для массового удаления всех накопленных сообщений в конкретном чате.
+# Удаляет как входящие сообщения пользователя, так и ответы бота, если их ID были сохранены в _messages.
 async def clear(chat_id, bot):
     ids = _messages.get(chat_id, [])
     if not ids:
@@ -143,32 +191,28 @@ async def clear(chat_id, bot):
     _messages[chat_id] = []
     print(f"Deleted messages for chat {chat_id}: {ids}")
 
-
+# 1. Автоматически логирует (трекает) входящие сообщения/альбомы ОТ ПОЛЬЗОВАТЕЛЯ до выполнения хендлера.
+# 2. Передает в хендлер список ранее сохраненных ID сообщений, если в аргументах функции есть 'tracked_messages'.
+# 3. Перехватывает возвращенные хендлером сообщения ОТ БОТА (через return) и тоже добавляет их в очередь на удаление.
 def track_message(func):
     wants_tracked = "tracked_messages" in inspect.signature(func).parameters
-
     @wraps(func)
     async def wrapper(*args, **kwargs):
         message = next((arg for arg in args if isinstance(arg, Message)), None)
         album = next((arg for arg in args if isinstance(arg, list) and arg and isinstance(arg[0], Message)), None)
-
         if message:
             track(message)
         elif album:
             track(album)
-
         if wants_tracked:
             chat_id = message.chat.id if message else (album[0].chat.id if album else None)
             kwargs["tracked_messages"] = list(_messages.get(chat_id, [])) if chat_id is not None else []
-
         result = await func(*args, **kwargs)
-
         if result:
             if isinstance(result, list):
                 for item in result:
                     track(item)
             else:
                 track(result)
-
         return result
     return wrapper

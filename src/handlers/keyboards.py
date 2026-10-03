@@ -71,3 +71,12 @@ anketa_kb_multiple = make_keyboard_repr(
                 "Изменить 'Медиа'"], adjust=(1, 2, 2, 2, 2)
 )
 
+settings_kb = make_keyboard_repr(
+    ["Купить Премиум", "Изменить язык", "Написать в поддержку"], adjust=(3, 1, 1))
+
+settings_kb_premium = make_keyboard_repr(
+    ["2 дні • ⭐️ 150", "10 днів • ⭐️ 350",
+     "30 днів • ⭐️ 500", "90 днів • ⭐️ 1000",
+     "Назад"], adjust=(1, 1, 1, 1, 1))
+settings_kb_language = make_keyboard_repr(
+    ["Русский", "English"], adjust=(2, 1))

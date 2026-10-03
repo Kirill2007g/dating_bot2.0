@@ -7,7 +7,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove
 from sqlalchemy import func
 
-from src.checksclasses.decorators import ask, clear, track, track_message
+from src.checksclasses.decorators import (ask, clear, track, track_message,
+                                        if_one_selected, if_multiple_selected)
 from src.checksclasses.validation import (
     AlbumMiddleware,
     IsValidAge,
@@ -19,7 +20,7 @@ from src.checksclasses.validation import (
     build_media_group,
 )
 from src.db.database import async_sessionmaker
-from src.db.db_queries import get_profile, save_user_in_db, get_profile_media, get_profile_text
+from src.db.db_queries import get_profile, save_user_in_db, get_profile_media, get_profile_text, update_user
 from src.db.models import User
 from src.handlers.keyboards import (
     choose_gender,
@@ -87,7 +88,25 @@ async def start_registration(message: Message, state: FSMContext, bot: Bot):
     bot_msg = await message.answer("Как тебя зовут?", reply_markup=ReplyKeyboardRemove())
     return bot_msg
 
-
+# import logging
+# logging.basicConfig(level=logging.DEBUG)
+# logger = logging.getLogger(__name__)
+# @router.message(StateRegistration.name)
+# @track_message
+# @if_one_selected
+# async def reg_name(message: Message, state: FSMContext, bot: Bot, is_single_edit: bool = False):
+#     if not await IsValidName()(message):
+#         return await message.answer("Введи имя")
+#     await clear(message.chat.id, bot)
+#     await state.update_data(tg_id=message.from_user.id, name=message.text)
+#     # logger.debug(f"Словили previous_state {previous_state}")
+#     if is_single_edit:
+#         # Сигнализируем декоратору, что шаг выполнен успешно.
+#         # Декоратор перехватит этот True, обновит БД и вернет юзера в меню.
+#         return True
+#     await state.set_state(StateRegistration.age)
+#     bot_msg = await ask(message, "Сколько тебе лет?")
+#     return bot_msg
 @router.message(StateRegistration.name)
 @track_message
 async def reg_name(message: Message, state: FSMContext, bot: Bot):
@@ -95,9 +114,24 @@ async def reg_name(message: Message, state: FSMContext, bot: Bot):
         return await message.answer("Введи имя")
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=message.from_user.id, name=message.text)
+    data = await state.get_data()
+    is_single_edit = data.get("is_single_edit", False)
+    if is_single_edit:
+        db_success = await update_user(data=data)
+        if db_success:
+            print("[REG_NAME] База данных успешно обновлена!")
+        else:
+            print("[REG_NAME] Ошибка при обновлении базы данных!")
+        await state.update_data(is_single_edit=False)
+        await state.set_state(StateMenu.anketa)
+        bot_msg_menu = await message.answer("Вы вернулись в меню анкеты.", reply_markup=anketa_kb)
+        return bot_msg_menu
     await state.set_state(StateRegistration.age)
     bot_msg = await ask(message, "Сколько тебе лет?")
     return bot_msg
+
+
+
 
 
 

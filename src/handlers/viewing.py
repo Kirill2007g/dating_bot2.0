@@ -3,12 +3,13 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove
 from src.checksclasses.decorators import ( track, track_message, ask,
-                                           clear,  collect_selection)
+                                           clear,  collect_selection,
+                                           if_one_selected, if_multiple_selected)
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-from src.handlers.keyboards import check_profiles, anketa_kb, anketa_kb_multiple, choose_gender, choose_looking_for
+from src.handlers.keyboards import check_profiles, anketa_kb, anketa_kb_multiple, choose_gender, choose_looking_for, settings_kb, settings_kb_premium, settings_kb_language
 from src.db.db_queries import get_profile, get_candidates, get_show_form, get_profile_media, get_profile_text
 from src.states import StateMenu, StateRegistration
 from src.checksclasses.validation import build_media_group
@@ -25,48 +26,6 @@ ANKETA_ACTIONS: dict[str, State] = {
     "Изменить 'Кого вы ищете'": StateRegistration.looking_for,
     "Изменить 'Медиа'": StateRegistration.media,
 }
-FIELD_ORDER = {"name", "age", "gender",
-               "city", "description", "looking_for",
-               "media"}
-fsm_data_dict = {
-    "name": None,
-    "age": None,
-    "gender": None,
-    "city": None,
-    "description": None,
-    "looking_for": None,
-    "media": None,
-}
-FIELD_STATES = {
-    "name": StateRegistration.name,
-    "age": StateRegistration.age,
-    "gender": StateRegistration.gender,
-    "city": StateRegistration.city,
-    "description": StateRegistration.description,
-    "looking_for": StateRegistration.looking_for,
-    "media": StateRegistration.media,
-}
-dassdf = {
-    "name": "Изменить 'Имя'",
-    "age": "Изменить 'Возраст'",
-    "gender": "Изменить 'Пол'",
-    "city": "Изменить 'Город'",
-    "description": "Изменить 'О себе'",
-    "looking_for": "Изменить 'Кого вы ищете'",
-    "media": "Изменить 'Медиа'",
-}
-
-FIELD_PROMPTS = {
-    "name": "Как тебя зовут?",
-    "age": "Сколько тебе лет?",
-    "gender": "Укажи пол",
-    "city": "Теперь напиши свой город",
-    "description": "Теперь напишите о себе",
-    "looking_for": "Кого вы ищете",
-    "media": "Пришли фото/видео до 3 штук",
-}
-
-button_to_key = {v: k for k, v in dassdf.items()}
 
 
 @router.message(StateMenu.menu)
@@ -77,6 +36,7 @@ async def menu(message: Message, state: FSMContext):
         await message.answer(f"{send}")
 
     if message.text == "Мой профиль":
+        await state.set_state(StateMenu.show_profile)
         profile_text = await get_profile_text(message.from_user.id)
         profile_media = await get_profile_media(message.from_user.id)
         if profile_media:
@@ -90,23 +50,43 @@ async def menu(message: Message, state: FSMContext):
         await message.answer(profile_text)
 
     if message.text == "Настройки":
-        await message.answer("Settings")
+        await state.set_state(StateMenu.settings)
+        await message.answer("Settings", reply_markup=settings_kb)
 
     if message.text == "Заполнить анкету заново":
         await message.answer("Выберите одно из:", reply_markup=anketa_kb)
         await state.set_state(StateMenu.anketa)
         logger.debug(f"словили message")
 
+@router.message(StateMenu.settings, F.text == "Купить Премиум")
+async def buy_premium(message: Message, state: FSMContext):
+    await message.answer("Активируй Premium и будь в топе ✨""\n"
+                         "\n"
+                        "Выделяйся среди других:\n"
+                        "📈 Больше показов анкеты\n"
+                        "🚀 Больше лайков\n"
+                        "👀 Твои лайки видят первыми\n"
+                        "⭐️ Твоя анкета выше остальных\n"
+                        "\n"
+                        "Больше внимания. Больше взаимных. Больше знакомств 💫\n"
+                        "\n"
+                        "Выбери срок действия Premium:\n"
+                        "\n"
+                        "• 2 дня • ⭐ 150\n"
+                        "\n"
+                        "• 10 дней • ⭐ 350\n"
+                        "\n"\
+                        "• 30 дней • ⭐ 500\n"
+                        "\n"
+                        "• 90 дней • ⭐ 1000\n"
+                        "\n"
+                        "*Оплачивая Premium, ты принимаешь условия покупки", reply_markup=settings_kb_premium)
 
+@router.message(StateMenu.settings, F.text == "Изменить язык")
+async def change_language(message: Message, state: FSMContext):
+    await message.answer("Languages available:", reply_markup=settings_kb_language)
 
-
-
-@router.message(StateMenu.anketa, F.text.in_(ANKETA_ACTIONS.keys()))
-async def handle_actions(message: Message, state: FSMContext, bot: Bot):
-    new_state = ANKETA_ACTIONS[message.text]
-    logger.debug(f"Словили actions, {new_state}")
-    await state.set_state(new_state)
-    prompts = {
+prompts = {
         StateRegistration.name: "Как тебя зовут?",
         StateRegistration.age: "Сколько тебе лет?",
         StateRegistration.gender: "Укажи пол",
@@ -118,13 +98,29 @@ async def handle_actions(message: Message, state: FSMContext, bot: Bot):
         StateMenu.edit_multiple: "Вам дан выбор из пунктов которые вы можете изменить" \
     ", отправляйте в чат по 1 пункту, а когда закончите нажмите на 'ВСЕ!'",
     }
-    keyboards = {
+keyboards = {
         StateMenu.edit_multiple: anketa_kb_multiple,
         StateRegistration.gender: choose_gender,
         StateRegistration.looking_for: choose_looking_for,
     }
-    await message.answer(prompts.get(new_state, "Продолжаем..."), reply_markup=keyboards.get(new_state))
-    await clear(message.chat.id, bot)
+@router.message(StateMenu.anketa, F.text.in_(ANKETA_ACTIONS.keys()))
+# @if_one_selected
+async def handle_actions(message: Message, state: FSMContext, bot: Bot):
+    new_state = ANKETA_ACTIONS[message.text] #StateRegistration.name например
+    # logger.debug(f"Словили actions, {new_state}")
+    await state.update_data(is_single_edit=True)
+    check_data = await state.get_data()
+    print(f"[HANDLE_ACTIONS] Проверка записи FSM {check_data}")
+    await state.set_state(new_state) #Теперь мы в состоянии StateRegistration.name
+    check = keyboards.get(new_state, None)
+    if check is None:
+        await message.answer(prompts.get(new_state, "Не нашли промпт"))
+    else:
+        await message.answer(prompts.get(new_state, "Не нашли промпт"),
+                             reply_markup=check) #Кидаем в чат промпт и клавиатуру, если она есть
+    # await message.answer(prompts.get(new_state, "Не нашли промпт"),
+    #                      reply_markup=keyboards.get(new_state, "Не нашли клавиатуру")) #Кидаем в чат промпт и клавиатуру, если она есть
+    # await clear(message.chat.id, bot)
 
 FIELD_ORDER_ = (StateRegistration.name, StateRegistration.age, StateRegistration.gender,
                  StateRegistration.city, StateRegistration.description, StateRegistration.looking_for,
@@ -216,4 +212,46 @@ async def like_profile(message: Message, state: FSMContext):
 #         )
 @router.message(F.text == "💤")
 async def go_back(message: Message, state: FSMContext):
+# FIELD_ORDER = {"name", "age", "gender",
+#                "city", "description", "looking_for",
+#                "media"}
+# fsm_data_dict = {
+#     "name": None,
+#     "age": None,
+#     "gender": None,
+#     "city": None,
+#     "description": None,
+#     "looking_for": None,
+#     "media": None,
+# }
+# FIELD_STATES = {
+#     "name": StateRegistration.name,
+#     "age": StateRegistration.age,
+#     "gender": StateRegistration.gender,
+#     "city": StateRegistration.city,
+#     "description": StateRegistration.description,
+#     "looking_for": StateRegistration.looking_for,
+#     "media": StateRegistration.media,
+# }
+# dassdf = {
+#     "name": "Изменить 'Имя'",
+#     "age": "Изменить 'Возраст'",
+#     "gender": "Изменить 'Пол'",
+#     "city": "Изменить 'Город'",
+#     "description": "Изменить 'О себе'",
+#     "looking_for": "Изменить 'Кого вы ищете'",
+#     "media": "Изменить 'Медиа'",
+# }
+
+# FIELD_PROMPTS = {
+#     "name": "Как тебя зовут?",
+#     "age": "Сколько тебе лет?",
+#     "gender": "Укажи пол",
+#     "city": "Теперь напиши свой город",
+#     "description": "Теперь напишите о себе",
+#     "looking_for": "Кого вы ищете",
+#     "media": "Пришли фото/видео до 3 штук",
+# }
+
+# button_to_key = {v: k for k, v in dassdf.items()}
     pass

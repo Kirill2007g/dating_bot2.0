@@ -31,6 +31,11 @@ async def save_in_city_mapping(user_input: str, resolved_name: str):
         await session.execute(query)
         await session.commit()
 
+_MEDIA_TYPE_MAP = {
+                "PHOTO": MediaType.PHOTO,
+                "VIDEO": MediaType.VIDEO,
+                "VIDEO_NOTE": MediaType.CIRCLE,
+            }
 async def save_user_in_db(fsm_data):
     tg_id = fsm_data.get('tg_id')
     name = fsm_data.get('name')
@@ -41,11 +46,11 @@ async def save_user_in_db(fsm_data):
     looking_for = fsm_data.get('looking_for')
     media_list = fsm_data.get('user_media_list', [])
 
-    _MEDIA_TYPE_MAP = {
-                "PHOTO": MediaType.PHOTO,
-                "VIDEO": MediaType.VIDEO,
-                "VIDEO_NOTE": MediaType.CIRCLE,
-            }
+    # _MEDIA_TYPE_MAP = {
+    #             "PHOTO": MediaType.PHOTO,
+    #             "VIDEO": MediaType.VIDEO,
+    #             "VIDEO_NOTE": MediaType.CIRCLE,
+    #         }
 
     async with async_session() as session:
         check_existing_user = await session.execute(
@@ -102,6 +107,46 @@ async def save_user_in_db(fsm_data):
             await session.rollback()
             print(f"Ошибка БД: {e}")
             return False
+
+
+async def update_user(data: dict):
+    tg_id = data.get('tg_id')
+    if not tg_id:
+        print("Ошибка: tg_id отсутствует в данных")
+        return False
+    allowed_columns = {"name", "age", "gender", "city", "description", "looking_for"}
+    update_values = {
+        key: value for key, value in data.items() if key in allowed_columns
+        and value is not None
+    }
+    if not update_values:
+        print("Нет данных для обновления")
+        return True
+    async with async_session() as session:
+        try:
+            query = (
+                update(User)
+            .where(User.tg_id == tg_id)
+            .values(**update_values)
+            )
+            await session.execute(query)
+            await session.commit()
+            print(f"Пользователь {tg_id} успешно обновлен. Изменены поля: {list(update_values.keys())}")
+            return True
+        except Exception as e:
+            await session.rollback()
+            print(f"Ошибка при обновлении пользователя {tg_id} в БД: {e}")
+            return False
+    # async with async_session() as session:
+    #     #update user_data without media
+    #     query = update(User).where(User.tg_id == data['tg_id']).values(
+    #         name=data['name'],
+    #         age=data['age'],
+    #         gender=data['gender'],
+    #         city=data['city'],
+    #         description=data['description'],
+    #         looking_for=data['looking_for']
+    #     )
 
 async def get_profile(tg_id: int) -> User | None:
     async with async_session() as session:
