@@ -5,7 +5,7 @@ import redis
 from aiogram import BaseMiddleware
 from aiogram.filters import BaseFilter
 from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message
-
+from aiogram.fsm.context import FSMContext
 
 from src.config import settings
 from src.db.db_queries import check_city_in_db, save_in_city_mapping
@@ -83,8 +83,6 @@ class IsValidCity(BaseFilter):
                     return False
 
 
-
-
 # временно
 class IsValidDescription(BaseFilter):
     async def __call__(self, message: Message) -> bool:
@@ -100,37 +98,6 @@ class IsValidLookingfor(BaseFilter):
             return False
         available_options = ["looking_for_men", "looking_for_women", "looking_for_any"]
         return callback_query.data in available_options
-
-# class AlbumMiddleware(BaseMiddleware):
-#     def __init__(self, latency: float = 0.2):
-#         self.latency = latency
-#         self.storage: Dict[str, List[Message]] = {}
-#     async def __call__(
-#         self,
-#         handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
-#         event: TelegramObject,
-#         data: Dict[str, Any]
-#     ) -> Any:
-#         if not isinstance(event, Message):
-#             return await handler(event, data)
-#         album_flag = get_flag(data, "album")
-#         if not album_flag:
-#             return await handler(event, data)
-#         if not event.media_group_id:
-#             data["album"] = [event]
-#             return await handler(event, data)
-#         mid = event.media_group_id
-#         if mid not in self.storage:
-#             self.storage[mid] = []
-#             self.storage[mid].append(event)
-#             await asyncio.sleep(self.latency)
-#             data["album"] = self.storage.pop(mid, [])
-#             if not data["album"]:
-#                 return
-#             return await handler(event, data)
-#         else:
-#             self.storage[mid].append(event)
-#             return
 
 def build_media_group(media_list: list) -> list:
     result = []
@@ -189,3 +156,16 @@ class AlbumMiddleware(BaseMiddleware):
             elif msg.video_note:
                 user_media.append({"media_type": "VIDEO_NOTE", "file_id": msg.video_note.file_id})
         return user_media
+
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class LoggingMiddleware(BaseMiddleware):
+    async def __call__(self, handler, event, data):
+        user = event.from_user
+        state: FSMContext = data.get("state")
+        if state:
+            current_state = await state.get_state()
+            logger.info(f"Текущий State {current_state}")
+        return await handler(event, data)

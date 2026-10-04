@@ -12,9 +12,10 @@ logger = logging.getLogger(__name__)
 from src.handlers.keyboards import check_profiles, anketa_kb, anketa_kb_multiple, choose_gender, choose_looking_for, settings_kb, settings_kb_premium, settings_kb_language
 from src.db.db_queries import get_profile, get_candidates, get_show_form, get_profile_media, get_profile_text
 from src.states import StateMenu, StateRegistration
-from src.checksclasses.validation import build_media_group
+from src.checksclasses.validation import LoggingMiddleware, build_media_group
 from aiogram.fsm.state import State
 router = Router()
+router.message.middleware(LoggingMiddleware())
 ANKETA_ACTIONS: dict[str, State] = {
     "Заполнить анкету заново": StateRegistration.name,
     "Изменить несколько пунктов": StateMenu.edit_multiple,
@@ -36,7 +37,6 @@ async def menu(message: Message, state: FSMContext):
         await message.answer(f"{send}")
 
     if message.text == "Мой профиль":
-        await state.set_state(StateMenu.show_profile)
         profile_text = await get_profile_text(message.from_user.id)
         profile_media = await get_profile_media(message.from_user.id)
         if profile_media:

@@ -17,6 +17,7 @@ from src.checksclasses.validation import (
     IsValidGender,
     IsValidLookingfor,
     IsValidName,
+    LoggingMiddleware,
     build_media_group,
 )
 from src.db.database import async_sessionmaker
@@ -36,7 +37,7 @@ from src.states import StateMenu, StateRegistration
 router = Router()
 
 router.message.middleware(AlbumMiddleware())
-
+router.message.middleware(LoggingMiddleware())
 from functools import wraps
 
 
@@ -88,60 +89,31 @@ async def start_registration(message: Message, state: FSMContext, bot: Bot):
     bot_msg = await message.answer("Как тебя зовут?", reply_markup=ReplyKeyboardRemove())
     return bot_msg
 
-# import logging
-# logging.basicConfig(level=logging.DEBUG)
-# logger = logging.getLogger(__name__)
-# @router.message(StateRegistration.name)
-# @track_message
-# @if_one_selected
-# async def reg_name(message: Message, state: FSMContext, bot: Bot, is_single_edit: bool = False):
-#     if not await IsValidName()(message):
-#         return await message.answer("Введи имя")
-#     await clear(message.chat.id, bot)
-#     await state.update_data(tg_id=message.from_user.id, name=message.text)
-#     # logger.debug(f"Словили previous_state {previous_state}")
-#     if is_single_edit:
-#         # Сигнализируем декоратору, что шаг выполнен успешно.
-#         # Декоратор перехватит этот True, обновит БД и вернет юзера в меню.
-#         return True
-#     await state.set_state(StateRegistration.age)
-#     bot_msg = await ask(message, "Сколько тебе лет?")
-#     return bot_msg
 @router.message(StateRegistration.name)
 @track_message
+@if_one_selected
 async def reg_name(message: Message, state: FSMContext, bot: Bot):
     if not await IsValidName()(message):
         return await message.answer("Введи имя")
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=message.from_user.id, name=message.text)
     data = await state.get_data()
-    is_single_edit = data.get("is_single_edit", False)
-    if is_single_edit:
-        db_success = await update_user(data=data)
-        if db_success:
-            print("[REG_NAME] База данных успешно обновлена!")
-        else:
-            print("[REG_NAME] Ошибка при обновлении базы данных!")
-        await state.update_data(is_single_edit=False)
-        await state.set_state(StateMenu.anketa)
-        bot_msg_menu = await message.answer("Вы вернулись в меню анкеты.", reply_markup=anketa_kb)
-        return bot_msg_menu
+    if data.get("is_single_edit", False):
+        return True
     await state.set_state(StateRegistration.age)
-    bot_msg = await ask(message, "Сколько тебе лет?")
-    return bot_msg
-
-
-
-
-
+    return await ask(message, "Сколько тебе лет?")
 
 @router.message(StateRegistration.age)
 @track_message
+@if_one_selected
 async def reg_age(message: Message, state: FSMContext, bot: Bot):
     if not await IsValidAge()(message):
         return await message.answer("Введи возраст ")
     await clear(message.chat.id, bot)
-    await state.update_data(age=int(message.text))
+    await state.update_data(tg_id=message.from_user.id, age=int(message.text))
+    data = await state.get_data()
+    if data.get("is_single_edit", False):
+        return True
     await state.set_state(StateRegistration.gender)
     bot_msg = await ask(message, "Теперь выберем пол", reply_markup=choose_gender)
     return bot_msg
@@ -152,32 +124,50 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
     if not await IsValidGender()(callback_query):
         return await callback_query.message.answer("Выбери пол", reply_markup=choose_gender)
     await clear(callback_query.message.chat.id, bot)
-    await state.update_data(gender=callback_query.data)
+    await state.update_data(tg_id=callback_query.from_user.id, gender=callback_query.data)
+    data = await state.get_data()
+    is_single_edit = data.get("is_single_edit", False)
+    if is_single_edit:
+        db_success = await update_user(data)
+        if db_success:
+            print("База данных успешно обновлена")
+        else:
+            print("База данных не обновлена")
+    await state.update_data(is_single_edit=False)
+    await state.set_state(StateMenu.anketa)
+    await callback_query.message.answer("Вы успешно изменили Пол", reply_markup=anketa_kb)
+    return
     await state.set_state(StateRegistration.city)
     bot_msg = await ask(callback_query.message, "Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
     return bot_msg
 
-
-
 #Доделать
 @router.message(StateRegistration.city)
 @track_message
+@if_one_selected
 async def reg_city(message: Message, state: FSMContext, bot: Bot):
     if not await IsValidCity()(message):
         return await message.answer("Введите название города")
     await clear(message.chat.id, bot)
-    await state.update_data(city=message.text)
+    await state.update_data(tg_id=message.from_user.id, city=message.text)
+    data = await state.get_data()
+    if data.get("is_single_edit", False):
+            return True
     await state.set_state(StateRegistration.description)
     bot_msg = await ask(message, "Теперь напишите о себе")
     return bot_msg
 
 @router.message(StateRegistration.description)
 @track_message
+@if_one_selected
 async def reg_description(message: Message, state: FSMContext, bot: Bot):
     # if not await IsValidDescription()(message):
     #     return await message.answer("Напишите о себе")
     await clear(message.chat.id, bot)
-    await state.update_data(description=message.text)
+    await state.update_data(tg_id=message.from_user.id, description=message.text)
+    data = await state.get_data()
+    if data.get("is_single_edit", False):
+        return True
     await state.set_state(StateRegistration.looking_for)
     bot_msg = await ask(message, "Кого вы ищете", reply_markup=choose_looking_for)
     return bot_msg
@@ -185,11 +175,23 @@ async def reg_description(message: Message, state: FSMContext, bot: Bot):
 
 @router.callback_query(StateRegistration.looking_for, F.data.in_(['looking_for_men', 'looking_for_women', 'looking_for_any']))
 @track_message
+@if_one_selected
 async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot: Bot):
     if not await IsValidLookingfor()(callback_query):
         return await callback_query.message.answer("Кого вы ищете", reply_markup=choose_looking_for)
     await clear(callback_query.message.chat.id, bot)
-    await state.update_data(looking_for=callback_query.data)
+    await state.update_data(tg_id=callback_query.from_user.id, looking_for=callback_query.data)
+    data = await state.get_data()
+    if data.get("is_single_edit", False):
+        db_success = await update_user(data)
+        if db_success:
+            print("База данных успешно обновлена")
+        else:
+            print("База данных не обновлена")
+        await state.update_data(is_single_edit=False)
+        await state.set_state(StateMenu.anketa)
+        await callback_query.message.answer("Вы успешно изменили looking_for", reply_markup=anketa_kb)
+        return
     await state.set_state(StateRegistration.media)
     bot_msg = await ask(callback_query.message, "Теперь пришлите фото/видео до 3 штук")
     return bot_msg
@@ -201,8 +203,19 @@ async def reg_media(message: Message, state: FSMContext, bot: Bot, user_media):
     if not user_media:
         return
     await clear(message.chat.id, bot)
-    await state.update_data(user_media_list=user_media)
+    await state.update_data(tg_id=message.from_user.id, user_media_list=user_media)
     data = await state.get_data()
+    if data.get("is_single_edit", False):
+        db_success = await update_user(data, flag_media=True)
+        if db_success:
+            print("База данных успешно обновлена")
+        else:
+            print("База данных не обновлена")
+            print(data)
+        await state.update_data(is_single_edit=False)
+        await state.set_state(StateMenu.anketa)
+        await message.answer("Вы успешно обновили медиа", reply_markup=anketa_kb)
+        return
     profile_media = build_media_group(user_media)
     if profile_media:
         bot_msg = await ask(message, "Вот как выглядит твоя анкета!", reply_markup=ReplyKeyboardRemove())

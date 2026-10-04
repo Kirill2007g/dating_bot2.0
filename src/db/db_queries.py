@@ -109,11 +109,35 @@ async def save_user_in_db(fsm_data):
             return False
 
 
-async def update_user(data: dict):
+async def update_user(data: dict, flag_media: bool = False):
     tg_id = data.get('tg_id')
     if not tg_id:
         print("Ошибка: tg_id отсутствует в данных")
         return False
+    if flag_media:
+        async with async_session() as session:
+            user_id = select(User.id).where(User.tg_id == tg_id)
+            try:
+                for media_item in data['user_media_list']:
+                    m_type = media_item.get("media_type")
+                    f_id = media_item.get("file_id")
+                    update_values_media = {
+                        "media_type": m_type,
+                        "file_id": f_id
+                    }
+                    media_query = (
+                        update(UserMedia)
+                    .where(UserMedia.user_id == user_id)
+                    .values(**update_values_media)
+                    )
+                    await session.execute(media_query)
+                    await session.commit()
+                    return True
+            except Exception as e:
+                await session.rollback()
+                print(f"Ошибка БД: {e}")
+                return False
+
     allowed_columns = {"name", "age", "gender", "city", "description", "looking_for"}
     update_values = {
         key: value for key, value in data.items() if key in allowed_columns
@@ -137,16 +161,6 @@ async def update_user(data: dict):
             await session.rollback()
             print(f"Ошибка при обновлении пользователя {tg_id} в БД: {e}")
             return False
-    # async with async_session() as session:
-    #     #update user_data without media
-    #     query = update(User).where(User.tg_id == data['tg_id']).values(
-    #         name=data['name'],
-    #         age=data['age'],
-    #         gender=data['gender'],
-    #         city=data['city'],
-    #         description=data['description'],
-    #         looking_for=data['looking_for']
-    #     )
 
 async def get_profile(tg_id: int) -> User | None:
     async with async_session() as session:

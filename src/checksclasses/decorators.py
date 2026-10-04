@@ -2,71 +2,11 @@ import inspect
 from functools import wraps
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
-from src.states import State, StateRegistration, StateMenu
+from src.states import State, StateMenu, StateRegistration
 from src.db.db_queries import update_user
-FIELD_ORDER = {"name", "age", "gender",
-               "city", "description", "looking_for",
-               "media"}
-FIELD_ORDER_ = (StateRegistration.name, StateRegistration.age, StateRegistration.gender,
-                 StateRegistration.city, StateRegistration.description, StateRegistration.looking_for,
-                 StateRegistration.media)
-fsm_data_dict = {
-    "name": None,
-    "age": None,
-    "gender": None,
-    "city": None,
-    "description": None,
-    "looking_for": None,
-    "media": None,
-}
+from src.checksclasses.dictionaries import ANKETA_ACTIONS, FIELD_ORDER_, prompts, button_to_key, _messages
+from src.handlers.keyboards import anketa_kb
 
-FIELD_PROMPTS = {
-    "name": "Как тебя зовут?",
-    "age": "Сколько тебе лет?",
-    "gender": "Укажи пол",
-    "city": "Теперь напиши свой город",
-    "description": "Теперь напишите о себе",
-    "looking_for": "Кого вы ищете",
-    "media": "Пришли фото/видео до 3 штук",
-}
-dassdf = {
-    "name": "Изменить 'Имя'",
-    "age": "Изменить 'Возраст'",
-    "gender": "Изменить 'Пол'",
-    "city": "Изменить 'Город'",
-    "description": "Изменить 'О себе'",
-    "looking_for": "Изменить 'Кого вы ищете'",
-    "media": "Изменить 'Медиа'",
-}
-
-button_to_key = {v: k for k, v in dassdf.items()}
-
-
-_messages: dict[int, list[int]] = {}
-from src.states import State, StateRegistration, StateMenu
-ANKETA_ACTIONS: dict[str, State] = {
-    "Заполнить анкету заново": StateRegistration.make_anketa_again,
-    "Изменить несколько пунктов": StateMenu.edit_multiple,
-    "Изменить 'Имя'": StateRegistration.name,
-    "Изменить 'Возраст'": StateRegistration.age,
-    "Изменить 'Пол'": StateRegistration.gender,
-    "Изменить 'Город'": StateRegistration.city,
-    "Изменить 'О себе'": StateRegistration.description,
-    "Изменить 'Кого вы ищете'": StateRegistration.looking_for,
-    "Изменить 'Медиа'": StateRegistration.media,
-}
-prompts = {
-        StateRegistration.name: "Как тебя зовут?",
-        StateRegistration.age: "Сколько тебе лет?",
-        StateRegistration.gender: "Укажи пол",
-        StateRegistration.city: "В каком ты городе?",
-        StateRegistration.description: "Расскажи о себе",
-        StateRegistration.looking_for: "Кого ты ищешь?",
-        StateRegistration.media: "Пришли фото или видео",
-        StateRegistration.make_anketa_again: "Как тебя зовут?",
-        StateMenu.edit_multiple: "Вам дан выбор из пунктов которые вы можете изменить" \
-    ", отправляйте в чат по 1 пункту, а когда закончите нажмите на 'ВСЕ!'",
-    }
 
 
 # Будет 2 декоратора, один если выбран Один пункт, другой если выбрано несколько пунктов
@@ -75,27 +15,26 @@ prompts = {
 def if_one_selected(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        state = next((arg for arg in args if isinstance(arg, FSMContext)), None)
+        state = kwargs.get("state") or next(
+            (arg for arg in args if isinstance(arg, FSMContext)), None
+        )
         message = next((arg for arg in args if isinstance(arg, Message)), None)
         result = await func(*args, **kwargs)
-        if result and state:
-            fsm_data = await state.get_data()
-            is_single_edit = fsm_data.get("is_single_edit", False)
-            print(f"[ДЕКОРАТОР] Хэндлер вернул True. Проверяем флаг одиночного изменения: {is_single_edit}")
-            if is_single_edit:
-                print("[ДЕКОРАТОР] Условия совпали! Обновляем базу данных")
-                db_success = await update_user(data=fsm_data)
-                if db_success:
-                    print("[ДЕКОРАТОР] База данных успешно обновлена!")
-                else:
-                    print("[ДЕКОРАТОР] Ошибка при обновлении базы данных!")
-                await state.update_data(is_single_edit=False)
-                await state.set_state(StateMenu.anketa)
-                bot_msg_menu = await message.answer("Вы вернулись в меню анкеты.", reply_markup=anketa_kb)
-                return bot_msg_menu
-
-        return result
+        if not result or not state or not message:
+            return result
+        fsm_data = await state.get_data()
+        if not fsm_data.get("is_single_edit", False):
+            return result
+        db_success = await update_user(data=fsm_data)
+        if db_success:
+            print("[ДЕКОРАТОР] База данных успешно обновлена!")
+        else:
+            print("[ДЕКОРАТОР] Ошибка при обновлении базы данных!")
+        await state.update_data(is_single_edit=False)
+        await state.set_state(StateMenu.anketa)
+        return await message.answer("Вы вернулись в меню анкеты.", reply_markup=anketa_kb)
     return wrapper
+
 
 
 #|
@@ -114,27 +53,6 @@ def map_sentences_to_states(sentences: list[str], actions: dict = ANKETA_ACTIONS
     states = [actions.get(sentence, sentence) for sentence in sentences_copy]
     states.sort(key=lambda state: FIELD_ORDER_.index(state) if state in FIELD_ORDER_ else 0)
     return states
-# def edit_multiple__(func):
-#     @wraps(func)
-#     async def wrapper(*args, **kwargs):
-#         sentences_list = next(
-#             (arg for arg in args if isinstance(arg, list) and all(isinstance(x, str) for x in arg)),
-#             None
-#         )
-#         if sentences_list:
-#             ready_lst = map_sentences_to_states(sentences_list)
-#             kwargs["ready_lst"] = ready_lst
-#         return await func(*args, **kwargs)
-#     return wrapper
-# def edit_multiple_y(func):
-#     @wraps(func)
-#     async def wrapper(states: list[State], *args, **kwargs):
-#         if not states:
-#             return await func(*args, **kwargs)
-#         else:
-#             current_state = next((state for state in states if isinstance(state, State)), None)
-#             current_reply = prompts.get(current_state, "Не нашли соответствующее состояние")
-
 
 def collect_selection(func):
     @wraps(func)
