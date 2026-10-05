@@ -1,5 +1,6 @@
 from src.states import State, StateMenu, StateRegistration
-
+from src.handlers.keyboards import (anketa_kb_multiple, choose_gender, choose_looking_for,
+                                    anketa_kb, settings_kb)
 _messages: dict[int, list[int]] = {}
 
 FIELD_ORDER = {"name", "age", "gender",
@@ -37,7 +38,6 @@ dassdf = {
     "media": "Изменить 'Медиа'",
 }
 
-button_to_key = {v: k for k, v in dassdf.items()}
 
 ANKETA_ACTIONS: dict[str, State] = {
     "Заполнить анкету заново": StateRegistration.make_anketa_again,
@@ -61,4 +61,23 @@ prompts = {
         StateRegistration.make_anketa_again: "Как тебя зовут?",
         StateMenu.edit_multiple: "Вам дан выбор из пунктов которые вы можете изменить" \
     ", отправляйте в чат по 1 пункту, а когда закончите нажмите на 'ВСЕ!'",
+        StateMenu.settings: "Settings",
+        StateMenu.anketa: 'state_anketa'
     }
+asad = {StateMenu.menu: ['StateMenu.anketa', 'StateMenu.settings'],
+        StateRegistration.media: StateRegistration.looking_for,
+        StateRegistration.looking_for: StateRegistration.description,
+        StateRegistration.description: StateRegistration.city,
+        StateRegistration.city: StateRegistration.gender,
+        StateRegistration.gender: StateRegistration.age,
+        StateRegistration.age: StateRegistration.name}
+
+keyboards = {
+        StateMenu.anketa: anketa_kb,
+        StateMenu.settings: settings_kb,
+        StateMenu.edit_multiple: anketa_kb_multiple,
+        StateRegistration.gender: choose_gender,
+        StateRegistration.looking_for: choose_looking_for,
+    }
+button_to_key = {v: k for k, v in dassdf.items()}
+anketa_actions_reverse = {v: k for k, v in ANKETA_ACTIONS.items()}

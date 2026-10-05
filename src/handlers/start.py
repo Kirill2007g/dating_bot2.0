@@ -6,7 +6,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove
 from sqlalchemy import func
-
+from src.checksclasses.dictionaries import asad, prompts, keyboards
 from src.checksclasses.decorators import (ask, clear, track, track_message,
                                         if_one_selected, if_multiple_selected)
 from src.checksclasses.validation import (
@@ -48,10 +48,14 @@ WEB_APP_URL =  "https://boondocks-dispersed-stir.ngrok-free.dev"
 @router.message(CommandStart())
 @track_message
 async def command_start_handler(message: Message, state: FSMContext):
-    profile = await get_profile(message.from_user.id)
+    user = message.from_user
+    if user is None:
+        return
+    user_id = user.id
+    profile = await get_profile(user_id)
     if profile:
-        profile = await get_profile_text(tg_id=message.from_user.id)
-        profile_media = await get_profile_media(tg_id=message.from_user.id)
+        profile = await get_profile_text(tg_id=user_id)
+        profile_media = await get_profile_media(tg_id=user_id)
         media_list = [
             {"type": m.media_type.value, "file_id": m.file_id}
             for m in profile_media
@@ -62,7 +66,7 @@ async def command_start_handler(message: Message, state: FSMContext):
             sent_msgs.append(await message.answer("Так выглядит твоя анкета!"))
             media_messages = await message.answer_media_group(media=media)
             sent_msgs.extend(media_messages)
-            sent_msgs.append(await message.answer(profile, reply_markup=menu_kb))
+            sent_msgs.append(await message.answer(profile or "Анкета пока недоступна.", reply_markup=menu_kb))
             await state.set_state(StateMenu.menu)
             return sent_msgs
     await state.clear()
@@ -71,14 +75,33 @@ async def command_start_handler(message: Message, state: FSMContext):
     return sent_msg
 
 
-@router.message(Command("cancel"))
+@router.message(Command("Back"), F.text == "Назад")
 async def cancel(message: Message, state: FSMContext):
     current_state = await state.get_state()
     if current_state is None:
-        await message.answer("can not cancel ")
+        await message.answer("/start")
         return
+    data = await state.get_data()
+    if data.get('is_single_edit', False):
+        await state.set_state(StateMenu.anketa)
+        return
+    else:
+        past_state = asad[next(state for state in asad if state.state == current_state)]
+        await state.set_state(past_state)
+        prompt = prompts.get(past_state, 'Не нашли промпт')
+        keyboard = keyboards.get(past_state, 'Не нашли клавиатуру')
+        if not prompt:
+            await message.answer('Не нашли промпт')
+            return
+        if prompt and not keyboard:
+            await message.answer(prompt)
+            return
+        if prompt and not keyboard:
+            await message.answer(prompt, reply_markup=keyboard)
+            return
+
     await state.clear()
-    await message.answer("canceled", reply_markup=menu_kb)
+    await message.answer("canceled", reply_markup=ReplyKeyboardRemove())
     await state.set_state(StateMenu.menu)
 
 @router.message(F.text == "Заполнить анкету")
@@ -96,7 +119,10 @@ async def reg_name(message: Message, state: FSMContext, bot: Bot):
     if not await IsValidName()(message):
         return await message.answer("Введи имя")
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=message.from_user.id, name=message.text)
+    user = message.from_user
+    if user is None:
+        return
+    await state.update_data(tg_id=user.id, name=message.text)
     data = await state.get_data()
     if data.get("is_single_edit", False):
         return True
@@ -109,8 +135,14 @@ async def reg_name(message: Message, state: FSMContext, bot: Bot):
 async def reg_age(message: Message, state: FSMContext, bot: Bot):
     if not await IsValidAge()(message):
         return await message.answer("Введи возраст ")
+    age_text = message.text
+    if age_text is None:
+        return await message.answer("Введи возраст ")
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=message.from_user.id, age=int(message.text))
+    user = message.from_user
+    if user is None:
+        return
+    await state.update_data(tg_id=user.id, age=int(age_text))
     data = await state.get_data()
     if data.get("is_single_edit", False):
         return True
@@ -122,8 +154,14 @@ async def reg_age(message: Message, state: FSMContext, bot: Bot):
 @track_message
 async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot):
     if not await IsValidGender()(callback_query):
-        return await callback_query.message.answer("Выбери пол", reply_markup=choose_gender)
-    await clear(callback_query.message.chat.id, bot)
+        message = callback_query.message
+        if message is None:
+            return
+        return await message.answer("Выбери пол", reply_markup=choose_gender)
+    message = callback_query.message
+    if message is None:
+        return
+    await clear(message.chat.id, bot)
     await state.update_data(tg_id=callback_query.from_user.id, gender=callback_query.data)
     data = await state.get_data()
     is_single_edit = data.get("is_single_edit", False)
@@ -133,12 +171,13 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
             print("База данных успешно обновлена")
         else:
             print("База данных не обновлена")
-    await state.update_data(is_single_edit=False)
-    await state.set_state(StateMenu.anketa)
-    await callback_query.message.answer("Вы успешно изменили Пол", reply_markup=anketa_kb)
-    return
+        await state.update_data(is_single_edit=False)
+        await state.set_state(StateMenu.anketa)
+        await message.answer("Вы успешно изменили Пол", reply_markup=anketa_kb)
+        return
+
     await state.set_state(StateRegistration.city)
-    bot_msg = await ask(callback_query.message, "Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
+    bot_msg = await ask(message, "Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
     return bot_msg
 
 #Доделать
@@ -148,11 +187,14 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
 async def reg_city(message: Message, state: FSMContext, bot: Bot):
     if not await IsValidCity()(message):
         return await message.answer("Введите название города")
+    user = message.from_user
+    if user is None:
+        return
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=message.from_user.id, city=message.text)
+    await state.update_data(tg_id=user.id, city=message.text)
     data = await state.get_data()
     if data.get("is_single_edit", False):
-            return True
+        return True
     await state.set_state(StateRegistration.description)
     bot_msg = await ask(message, "Теперь напишите о себе")
     return bot_msg
@@ -161,10 +203,13 @@ async def reg_city(message: Message, state: FSMContext, bot: Bot):
 @track_message
 @if_one_selected
 async def reg_description(message: Message, state: FSMContext, bot: Bot):
-    # if not await IsValidDescription()(message):
-    #     return await message.answer("Напишите о себе")
+    if not await IsValidDescription()(message):
+        return await message.answer("Напишите о себе")
+    user = message.from_user
+    if user is None:
+        return
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=message.from_user.id, description=message.text)
+    await state.update_data(tg_id=user.id, description=message.text)
     data = await state.get_data()
     if data.get("is_single_edit", False):
         return True
@@ -177,6 +222,8 @@ async def reg_description(message: Message, state: FSMContext, bot: Bot):
 @track_message
 @if_one_selected
 async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot: Bot):
+    if callback_query.message is None:
+        return
     if not await IsValidLookingfor()(callback_query):
         return await callback_query.message.answer("Кого вы ищете", reply_markup=choose_looking_for)
     await clear(callback_query.message.chat.id, bot)
@@ -200,7 +247,7 @@ async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot:
 @router.message(StateRegistration.media, F.photo | F.video | F.video_note)
 @track_message
 async def reg_media(message: Message, state: FSMContext, bot: Bot, user_media):
-    if not user_media:
+    if not user_media or message.from_user is None:
         return
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=message.from_user.id, user_media_list=user_media)
