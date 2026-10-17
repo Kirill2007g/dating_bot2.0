@@ -2,7 +2,7 @@ from aiogram import F, Bot, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove
-from src.db.db_queries import get_ten
+from src.db.db_queries import get_ten, add_to_seen_ids_table, get_all_seen_ids
 from src.checksclasses.decorators import ( track, track_message, ask,
                                            clear,
                                            if_one_selected)
@@ -29,23 +29,6 @@ async def menu(message: Message, state: FSMContext):
         return
     if message.text == "Смотреть анкеты":
         await message.answer("Смотреть анкеты!!!")
-        # await state.set_state(StateMenu.check_profiles)
-        # #Берем user_aclt
-        # if message.from_user is None:
-        #     return
-        # user_profile = await get_profile(tg_id=message.from_user.id)
-        # if user_profile is None:
-        #     await message.answer("Анкета не найдена")
-        #     return
-        # user_aclt = await get_profile_aclt(tg_id=message.from_user.id)
-        # if user_aclt is None:
-        #     await message.answer("Юзер aclt не найден")
-        #     return
-        # age, city, looking_for, tg_id = user_aclt
-
-
-
-        # await state.set_state(StateMenu.check_profiles)
         if message.from_user is None:
                     return
         user_profile = await get_profile(tg_id=message.from_user.id)
@@ -60,12 +43,15 @@ async def menu(message: Message, state: FSMContext):
             return
         age, city, looking_for, tg_id = user_aclt
         await message.answer(f"age: {age} city: {city} looking_for: {looking_for} tg_id: {tg_id}")
-        profiles = await get_ten(age, city, looking_for, tg_id)
+        seen_ids = await get_all_seen_ids(user_tg_id=message.from_user.id)
+        profiles = await get_ten(age, city, looking_for, tg_id, seen_ids=seen_ids)
         await message.answer("УСПЕХ GET TEN")
         if not profiles:
             await message.answer("анкет по критериям не нашли")
             return
+
         for user in profiles:
+            await add_to_seen_ids_table(user_tg_id=message.from_user.id, viewed_profile_id=user.id)
             text =(
             f"User \n"
             f"ID: {user.id}\n"
@@ -76,10 +62,7 @@ async def menu(message: Message, state: FSMContext):
             f"gender: {user.gender}\n\n"
             f"Media\n"
             f"MEDIA_TYPE: {user.media}")
-
             await message.answer(text)
-        # if message.from_user is None:
-        #     return
 
 
     if message.text == "Мой профиль":

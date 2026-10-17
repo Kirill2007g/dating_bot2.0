@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.database import async_session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import selectinload
-
+import redis.asyncio as aioredis
 async def check_city_in_db(user_text: str):
     clean_input = user_text.strip().lower()
     async with async_session() as session:
@@ -258,7 +258,7 @@ GENDER_MAP = {
     'looking_for_any': None
 }
 GENDERS = ['gender_male', 'gender_female', 'looking_for_male', 'looking_for_female', 'looking_for_any']
-async def get_ten(age, city, looking_for, tg_id, limit: int=10):
+async def get_ten(age, city, looking_for, tg_id, seen_ids: list[int], limit: int=10):
     age = int(age)
     city = city.strip()
     looking_for = looking_for.strip()
@@ -273,6 +273,7 @@ async def get_ten(age, city, looking_for, tg_id, limit: int=10):
             select(User)
             .where(
                 User.tg_id != tg_id,
+                User.id.not_in(seen_ids),
                 User.city == city,
                 User.gender == looking_for_gender,
                 User.age.in_(age_range))
@@ -282,6 +283,17 @@ async def get_ten(age, city, looking_for, tg_id, limit: int=10):
         result = await session.execute(query)
         profiles = result.scalars().all()
         return profiles
+#604800 = 7 дней
+r = aioredis.Redis(host="localhost", port=6379, decode_responses=True)
+async def add_to_seen_ids_table(user_tg_id: int, viewed_profile_id: int):
+    redis_key = f"seen:{user_tg_id}"
+    await r.sadd(redis_key, viewed_profile_id)
+    await r.expire(redis_key, 604800)
+
+async def get_all_seen_ids(user_tg_id: int) -> list[int]:
+    redis_key = f"seen:{user_tg_id}"
+    seen_ids_raw = await r.smembers(redis_key)
+    return [int(x) for x in seen_ids_raw]
 
 
 #[self.age, self.city, self.looking_for, self.tg_id]
