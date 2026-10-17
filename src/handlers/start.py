@@ -30,7 +30,7 @@ from src.handlers.keyboards import (
     menu_kb,
     start_markup,
     anketa_kb,
-    check_profiles
+    check_profiles_kb
 )
 from src.states import StateMenu, StateRegistration
 
@@ -41,7 +41,6 @@ router.message.middleware(LoggingMiddleware())
 from functools import wraps
 
 
-WEB_APP_URL =  "https://boondocks-dispersed-stir.ngrok-free.dev"
 
 
 
@@ -180,7 +179,7 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
     bot_msg = await ask(message, "Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
     return bot_msg
 
-#Доделать
+
 @router.message(StateRegistration.city)
 @track_message
 @if_one_selected
@@ -204,7 +203,7 @@ async def reg_city(message: Message, state: FSMContext, bot: Bot):
 @if_one_selected
 async def reg_description(message: Message, state: FSMContext, bot: Bot):
     if not await IsValidDescription()(message):
-        return await message.answer("Напишите о себе")
+        return await message.answer("Вы превысили лимит в 1000 символов")
     user = message.from_user
     if user is None:
         return

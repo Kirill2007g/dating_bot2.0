@@ -50,7 +50,7 @@ menu_kb = make_keyboard_repr(
     one_time=True,
 )
 
-check_profiles = make_keyboard_repr (
+check_profiles_kb = make_keyboard_repr (
     ["❤️", "👎", "💌", "💤"], adjust=(4, 1)
 )
 zzz_kb = make_keyboard_repr(

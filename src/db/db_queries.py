@@ -46,11 +46,6 @@ async def save_user_in_db(fsm_data):
     looking_for = fsm_data.get('looking_for')
     media_list = fsm_data.get('user_media_list', [])
 
-    # _MEDIA_TYPE_MAP = {
-    #             "PHOTO": MediaType.PHOTO,
-    #             "VIDEO": MediaType.VIDEO,
-    #             "VIDEO_NOTE": MediaType.CIRCLE,
-    #         }
 
     async with async_session() as session:
         check_existing_user = await session.execute(
@@ -228,30 +223,9 @@ async def get_profile_media(tg_id: int) -> list[UserMedia]:
 #         await session.execute(query)
 #         await session.commit()
 
-# async def likes_dislikes_ratio():
-#     pass
-
-# async def likes_matches_ratio():
-#     pass
-
-async def mark_profile_seen(viewer_tg_id: int,seen_tg_id: int) -> None:
-    async with async_session() as session:
-        query = pg_insert(SeenProfiles).values(
-            viewer_tg_id=viewer_tg_id,
-            seen_tg_id=seen_tg_id
-        ).on_conflict_do_nothing(index_elements=["viewer_tg_id" "seen_tg_id"])
-        await session.execute(query)
-        await session.commit()
 
 
-# GENDER_MAP = {
-#     "gender_male": "male",
-#     "gender_female": "female",
-#     "looking_for_female": "female",
-#     "looking_for_any": None,
-#     "looking_for_both": None,
-#     "looking_for_male": "male",
-# }
+
 GENDER_MAP = {
     'looking_for_male': 'gender_male',
     'looking_for_female': 'gender_female',
@@ -283,6 +257,7 @@ async def get_ten(age, city, looking_for, tg_id, seen_ids: list[int], limit: int
         result = await session.execute(query)
         profiles = result.scalars().all()
         return profiles
+
 #604800 = 7 дней
 r = aioredis.Redis(host="localhost", port=6379, decode_responses=True)
 async def add_to_seen_ids_table(user_tg_id: int, viewed_profile_id: int):
@@ -290,97 +265,14 @@ async def add_to_seen_ids_table(user_tg_id: int, viewed_profile_id: int):
     await r.sadd(redis_key, viewed_profile_id)
     await r.expire(redis_key, 604800)
 
+
 async def get_all_seen_ids(user_tg_id: int) -> list[int]:
     redis_key = f"seen:{user_tg_id}"
     seen_ids_raw = await r.smembers(redis_key)
     return [int(x) for x in seen_ids_raw]
 
 
-#[self.age, self.city, self.looking_for, self.tg_id]
-async def get_candidates(spisok: list,limit: int = 30,) -> dict:
-    age = int(spisok[0])
-    city = spisok[1]
-    looking_for = spisok[2]
-    tg_id = int(spisok[3])
 
-    if looking_for not in GENDER_MAP:
-        raise ValueError
-    looking_for_gender = GENDER_MAP[looking_for]
-    age_range = range(age-2, age+2)
-
-    async with async_session() as session:
-        seen_subq = select(SeenProfiles.seen_tg_id).where(
-            SeenProfiles.viewer_tg_id == tg_id
-        )
-        if looking_for_gender is not None:
-            filters.append
-        query = select(User).where(
-            User.age.in_(age_range),
-            User.city == city,
-            User.gender == looking_for,
-            User.tg_id != tg_id,
-            User.tg_id.notin_(seen_subq)
-        ).order_by(func.abs(User.age - age),
-         User.rating.desc()).limit(limit)
-        result = await session.execute(query)
-        profiles = result.scalars().all()
-
-        return {
-            str(user.tg_id): {
-                "id": user.id,
-                "tg_id": user.tg_id,
-                "name": user.name,
-                "age": user.age,
-                "gender": user.gender,
-                "city": user.city,
-                "description": user.description,
-                "looking_for": user.looking_for,
-                "rating": user.rating,
-            }
-            for user in profiles
-        }
-
-# def take_rand(func, _list_, limit=30):
-#     candidates = await func(_list_)
-#     for _, profile in candidates.items():
-#         tg_id = profile['rating']
-#     profile = candidates.get(str(tg_id))
-
-# async def get_user_for_show_ankets(_list_: list, seen_tg_ids: list) -> dict:
-#     tg_id = int(_list_[3])
-#     age = int(_list_[0])
-#     city = _list_[1]
-#     looking_for = _list_[2]
-#     age_range = list(range(age - 2, age + 3))
-#     async with async_session() as session:
-#         filters = [
-#             User.age.in_(age_range),
-#             User.city == city,
-#             User.gender == looking_for,
-#             User.tg_id != tg_id
-#         ]
-#         if seen_tg_ids:
-#             filters.append(~User.tg_id.notin_(seen_tg_ids))
-#         query = select(User).where(*filters).order_by(
-#             func.abs(User.age - age),
-#             User.rating.desc(). limit(30))
-#         result = await session.execute(query)
-#         profiles = result.scalars().all()
-#         profiles_dict = {
-#             str(user.tg_id): {
-#                 "id": user.id, #int
-#                 "tg_id": user.tg_id, #int
-#                 "name": user.name, #str
-#                 "age": user.age, #int
-#                 "gender": user.gender, #str
-#                 "city": user.city, #str
-#                 "description": user.description, #str
-#                 "looking_for": user.looking_for, #str
-#                 "rating": user.rating, #Decimal
-#             }
-#             for user in profiles
-#         }
-#         return profiles_dict
 
 lst = {
     "id": 5, #int
@@ -405,30 +297,3 @@ dct = {
     "looking_for": ..., #str
     "rating": ..., #Decimal
 }
-# async def set_dislike():
-#     pass
-# async def set_like_with_message():
-#     pass
-
-
-# class ReactionType(str, Enum):
-#     LIKE = "like"
-#     DISLIKE = "dislike"
-
-# class Action(Base):
-#     __tablename__ = "actions"
-#     __table_args__ = (
-#         UniqueConstraint("from_user_id", "to_user_id", name="uq_from_to_user"),
-#     )
-#     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-#     from_user_id: Mapped[int] = mapped_column(
-#         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-#     )
-#     to_user_id: Mapped[int] = mapped_column(
-#         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-#     )
-#     reaction: Mapped[ReactionType] = mapped_column(nullable=False)
-#     message: Mapped[str | None] = mapped_column(String(500), nullable=True)
-#     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-#     from_user: Mapped['User'] = relationship(foreign_keys=[from_user_id])
-#     to_user: Mapped['User'] = relationship(foreign_keys=[to_user_id])

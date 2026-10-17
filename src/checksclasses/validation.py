@@ -1,7 +1,7 @@
 import json
 from typing import Any, Awaitable, Callable
 import asyncio
-import redis
+import redis.asyncio as aioredis
 from aiogram import BaseMiddleware
 from aiogram.filters import BaseFilter
 from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message
@@ -35,9 +35,8 @@ class IsValidGender(BaseFilter): #Парни, Девушки, Без разни�
         return callback_query.data in available_options
 
 
-# временно
-#Проблема с dadata киев = киевское шоссе москва, хотя должно быть городом проблема в clean
-r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+
+r = aioredis.Redis(host="localhost", port=6379, decode_responses=True)
 class IsValidCity(BaseFilter):
     """Проверка города на валидность,
     1. Смотрим в кеше(Redis)
@@ -45,9 +44,11 @@ class IsValidCity(BaseFilter):
     3. Если нашли в бд записываем в кеш
     4. Если не нашли то"""
     async def __call__(self, message: Message) -> bool:
+        if message.text is None:
+            return False
         city = message.text.strip()
         city_key = f"city:{city.lower()}"
-        cached_data = r.get(city_key)
+        cached_data = await r.get(city_key)
         if cached_data:
             result = json.loads(cached_data)
             print("Город найден в Redis")
@@ -58,7 +59,7 @@ class IsValidCity(BaseFilter):
             check_db = await check_city_in_db(city)
             if check_db:
                 print("Сохраняем город в Redis")
-                r.set(
+                await r.set(
                     city_key, json.dumps(
                         {"resolved_name": check_db}
                     )
@@ -70,7 +71,7 @@ class IsValidCity(BaseFilter):
                 if check_geopy:
                     city_name = check_geopy.raw.get('name') or check_geopy.address.split(',')[0]
                     await save_in_city_mapping(city, city_name)
-                    r.set(
+                    await r.set(
                         city_key,
                         json.dumps({
                             "resolved_name": check_geopy.address
@@ -83,14 +84,14 @@ class IsValidCity(BaseFilter):
                     return False
 
 
-# временно
+
 class IsValidDescription(BaseFilter):
     async def __call__(self, message: Message) -> bool:
-        # if not message.text:
-        #     return False
-        # description = message.text
-        # return not len(description) > 1000
-        return True
+        if not message.text:
+            return False
+        description = message.text
+        return not len(description) > 1000
+
 
 class IsValidLookingfor(BaseFilter):
     async def __call__(self, callback_query: CallbackQuery) -> bool:
