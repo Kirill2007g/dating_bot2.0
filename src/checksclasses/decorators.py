@@ -9,8 +9,6 @@ from src.handlers.keyboards import anketa_kb
 
 
 
-# Будет 2 декоратора, один если выбран Один пункт, другой если выбрано несколько пунктов
-#|
 # if_one_selected - декоратор для функции которая вызывается если выбран один пункт
 def if_one_selected(func):
     @wraps(func)
@@ -33,44 +31,6 @@ def if_one_selected(func):
         await state.update_data(is_single_edit=False)
         await state.set_state(StateMenu.anketa)
         return await message.answer("Вы вернулись в меню анкеты.", reply_markup=anketa_kb)
-    return wrapper
-
-
-
-#|
-# if_multiple_selected - декоратор для функции которая вызывается если выбрано несколько пунктов
-def if_multiple_selected(func):
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        return await func(*args, **kwargs)
-    return wrapper
-
-
-def map_sentences_to_states(sentences: list[str], actions: dict = ANKETA_ACTIONS):
-    sentences_copy = sentences.copy()
-    if 'ВСЕ!' in sentences_copy:
-        sentences_copy.remove('ВСЕ!')
-    states = [actions.get(sentence, sentence) for sentence in sentences_copy]
-    states.sort(key=lambda state: FIELD_ORDER_.index(state) if state in FIELD_ORDER_ else 0)
-    return states
-
-def collect_selection(func):
-    @wraps(func)
-    async def wrapper(message: Message, state: FSMContext, *args, **kwargs):
-        print(f"DEBUG raw={message.text!r} equals_vse={message.text == 'ВСЕ!'}")
-        data = await state.get_data()
-        selected = list(data.get("selected_fields", []))
-        if message.text == 'ВСЕ!':
-            kwargs["selected_fields"] = selected
-            kwargs["finished"] = True
-            kwargs["selected_fields"].append('ВСЕ!')
-        else:
-            if message.text in button_to_key and message.text not in selected:
-                selected.append(message.text)
-                await state.update_data(selected_fields=selected)
-            kwargs["selected_fields"] = selected
-            kwargs['finished'] = False
-        return await func(message, state, *args, **kwargs)
     return wrapper
 
 # Функция для сохранения ID сообщений в глобальном словаре _messages.

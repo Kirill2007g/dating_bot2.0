@@ -2,16 +2,20 @@ from aiogram import F, Bot, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove
+from src.db.db_queries import get_ten
 from src.checksclasses.decorators import ( track, track_message, ask,
-                                           clear,  collect_selection,
-                                           if_one_selected, if_multiple_selected)
+                                           clear,
+                                           if_one_selected)
 from src.checksclasses.dictionaries import (ANKETA_ACTIONS, prompts, keyboards,
-                                            FIELD_ORDER_)
+                                      FIELD_ORDER_)
 import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-from src.handlers.keyboards import check_profiles, anketa_kb, anketa_kb_multiple, choose_gender, choose_looking_for, settings_kb, settings_kb_premium, settings_kb_language
-from src.db.db_queries import get_profile, get_candidates, get_show_form, get_profile_media, get_profile_text
+from src.handlers.keyboards import (check_profiles as check_profiles_kb, anketa_kb, choose_gender,
+                                     choose_looking_for, settings_kb, settings_kb_premium,
+                                       settings_kb_language, menu_kb, zzz_kb)
+from src.db.db_queries import (get_profile, get_candidates, get_show_form,
+                                get_profile_media, get_profile_aclt)
 from src.states import StateMenu, StateRegistration
 from src.checksclasses.validation import LoggingMiddleware, build_media_group
 from aiogram.fsm.state import State
@@ -21,17 +25,67 @@ router.message.middleware(LoggingMiddleware())
 
 @router.message(StateMenu.menu)
 async def menu(message: Message, state: FSMContext):
+    if not message.text:
+        return
     if message.text == "Смотреть анкеты":
+        await message.answer("Смотреть анкеты!!!")
+        # await state.set_state(StateMenu.check_profiles)
+        # #Берем user_aclt
+        # if message.from_user is None:
+        #     return
+        # user_profile = await get_profile(tg_id=message.from_user.id)
+        # if user_profile is None:
+        #     await message.answer("Анкета не найдена")
+        #     return
+        # user_aclt = await get_profile_aclt(tg_id=message.from_user.id)
+        # if user_aclt is None:
+        #     await message.answer("Юзер aclt не найден")
+        #     return
+        # age, city, looking_for, tg_id = user_aclt
+
+
+
+        # await state.set_state(StateMenu.check_profiles)
         if message.from_user is None:
+                    return
+        user_profile = await get_profile(tg_id=message.from_user.id)
+        await message.answer("ВЗЯЛИ ПРОФИЛЬ")
+        if user_profile is None:
+            await message.answer("Анкета не найдена.")
             return
-        profile = await get_show_form(tg_id=message.from_user.id)
-        send = await get_candidates(list(profile))
-        await message.answer(f"{send}")
+        user_aclt = await get_profile_aclt(user_profile.tg_id)
+        await message.answer("взяли aclt")
+        if user_aclt is None:
+            await message.answer("Анкета не найдена.")
+            return
+        age, city, looking_for, tg_id = user_aclt
+        await message.answer(f"age: {age} city: {city} looking_for: {looking_for} tg_id: {tg_id}")
+        profiles = await get_ten(age, city, looking_for, tg_id)
+        await message.answer("УСПЕХ GET TEN")
+        if not profiles:
+            await message.answer("анкет по критериям не нашли")
+            return
+        for user in profiles:
+            text =(
+            f"User \n"
+            f"ID: {user.id}\n"
+            f"NAME: {user.name}\n"
+            f"AGE: {user.age}\n"
+            f"CITY: {user.city}"
+            f"looking_for: {user.looking_for}\n"
+            f"gender: {user.gender}\n\n"
+            f"Media\n"
+            f"MEDIA_TYPE: {user.media}")
+
+            await message.answer(text)
+        # if message.from_user is None:
+        #     return
+
 
     if message.text == "Мой профиль":
         if message.from_user is None:
             return
-        profile_text = await get_profile_text(message.from_user.id)
+        profile_text = await get_profile_aclt(message.from_user.id)
         profile_media = await get_profile_media(message.from_user.id)
         if profile_media:
             media_list = [
@@ -42,7 +96,7 @@ async def menu(message: Message, state: FSMContext):
             if media_group:
                 await message.answer_media_group(media_group)
         if profile_text is not None:
-            await message.answer(profile_text)
+            await message.answer(profile_text, reply_markup=menu_kb)
 
     if message.text == "Настройки":
         await state.set_state(StateMenu.settings)
@@ -86,6 +140,10 @@ async def change_language(message: Message, state: FSMContext):
 async def handle_actions(message: Message, state: FSMContext, bot: Bot):
     if message.text is None:
         return
+    if message.text == "Заполнить анкету заново":
+        await state.set_state(StateRegistration.name)
+        await message.answer("Как тебя зовут?")
+        return
     new_state = ANKETA_ACTIONS[message.text]
     await state.update_data(is_single_edit=True)
     await state.set_state(new_state)
@@ -97,46 +155,28 @@ async def handle_actions(message: Message, state: FSMContext, bot: Bot):
                              reply_markup=check)
 
 
-
-def map_sentences_to_states(sentences: list[str], actions: dict = ANKETA_ACTIONS):
-    sentences_copy = sentences.copy()
-    if 'ВСЕ!' in sentences_copy:
-        sentences_copy.remove('ВСЕ!')
-    states = [actions.get(sentence, sentence) for sentence in sentences_copy]
-    states.sort(key=lambda state: FIELD_ORDER_.index(state) if state in FIELD_ORDER_ else 0)
-    return states
-@router.message(StateMenu.edit_multiple)
-@track_message
-@collect_selection
-async def change_many_options_in_anketa(
-    message: Message,
-    state: FSMContext,
-    bot: Bot,
-    tracked_messages: list,
-    selected_fields: list,
-    finished: bool,
-):
-    if finished:
-        if not selected_fields:
-            await message.answer("Ты ничего не выбрал.Выбери хотя бы один пункт")
-            await state.update_data(selected_fields=[])
+@router.message(StateMenu.check_profiles)
+async def check_profiles(message: Message, state: FSMContext):
+    if not message.text:
+        return
+    if message.text == "💤":
+        await message.answer(f"1.Смотреть Анкеты.\n"
+                             "2. Моя анкета.\n"
+                             "3.Я больше не хочу никого искать.\n"
+                             "4.Активируй Premium - будь в топе\n", reply_markup=zzz_kb)
+    if message.text == "Смотреть Анкеты":
+        if message.from_user is None:
             return
-        mapped_states = map_sentences_to_states(selected_fields)
-        new_state = mapped_states[0]
-        await state.update_data(new_state=new_state)
-        new_state_reply = prompts.get(new_state, "Не нашли соответствующее состояние")
-        await message.answer(f"{new_state_reply}")
-        return await message.answer(f"selected_fields: {selected_fields}\nMapped: {map_sentences_to_states(selected_fields)}")
-        # mapped = map_sentences_to_states(selected_fields)
-        # await message.answer(f"Mapped: {mapped}")
-        # field_keys = [button_to_key[btn] for btn in selected_fields]
-        # first_key, *rest = field_keys
-        # await state.update_data(selected_fields=[], edit_queue=rest)
-        # await state.set_state(FIELD_STATES[first_key])
-        # await message.answer(FIELD_PROMPTS[first_key], reply_markup=ReplyKeyboardRemove())
-        # return
-    await message.answer(f"Пока выбрано: {selected_fields}", reply_markup=anketa_kb_multiple)
-
+        profiles = await get_ten(age=25, city='Одесса',
+                                looking_for='gender_male', tg_id=message.from_user.id, limit=10)
+        if not profiles:
+            await message.answer("Анкет не найдено.")
+            return
+        logger.info(f"profiles {profiles}")
+        for p in profiles:
+            logger.info(f"{p.id}, {p.media}")
+        await message.answer(str(profiles))
+        await message.answer(str(profiles[0].name))
 
 @router.message(F.text == "❤️")
 async def like_profile(message: Message, state: FSMContext):

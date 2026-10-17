@@ -6,9 +6,9 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove
 from sqlalchemy import func
-from src.checksclasses.dictionaries import asad, prompts, keyboards
+from src.checksclasses.dictionaries import asad, prompts, keyboards, cancel_dict
 from src.checksclasses.decorators import (ask, clear, track, track_message,
-                                        if_one_selected, if_multiple_selected)
+                                        if_one_selected)
 from src.checksclasses.validation import (
     AlbumMiddleware,
     IsValidAge,
@@ -21,7 +21,7 @@ from src.checksclasses.validation import (
     build_media_group,
 )
 from src.db.database import async_sessionmaker
-from src.db.db_queries import get_profile, save_user_in_db, get_profile_media, get_profile_text, update_user
+from src.db.db_queries import get_profile, save_user_in_db, get_profile_media, get_profile_aclt, update_user
 from src.db.models import User
 from src.handlers.keyboards import (
     choose_gender,
@@ -54,7 +54,7 @@ async def command_start_handler(message: Message, state: FSMContext):
     user_id = user.id
     profile = await get_profile(user_id)
     if profile:
-        profile = await get_profile_text(tg_id=user_id)
+        profile = await get_profile_aclt(tg_id=user_id)
         profile_media = await get_profile_media(tg_id=user_id)
         media_list = [
             {"type": m.media_type.value, "file_id": m.file_id}
@@ -66,7 +66,7 @@ async def command_start_handler(message: Message, state: FSMContext):
             sent_msgs.append(await message.answer("Так выглядит твоя анкета!"))
             media_messages = await message.answer_media_group(media=media)
             sent_msgs.extend(media_messages)
-            sent_msgs.append(await message.answer(profile or "Анкета пока недоступна.", reply_markup=menu_kb))
+            sent_msgs.append(await message.answer(str(profile) if profile else "Анкета пока недоступна.", reply_markup=menu_kb))
             await state.set_state(StateMenu.menu)
             return sent_msgs
     await state.clear()
@@ -75,7 +75,7 @@ async def command_start_handler(message: Message, state: FSMContext):
     return sent_msg
 
 
-@router.message(Command("Back"), F.text == "Назад")
+@router.message(F.text == 'Назад')
 async def cancel(message: Message, state: FSMContext):
     current_state = await state.get_state()
     if current_state is None:
@@ -86,7 +86,7 @@ async def cancel(message: Message, state: FSMContext):
         await state.set_state(StateMenu.anketa)
         return
     else:
-        past_state = asad[next(state for state in asad if state.state == current_state)]
+        past_state = asad.get(current_state, 'sa')
         await state.set_state(past_state)
         prompt = prompts.get(past_state, 'Не нашли промпт')
         keyboard = keyboards.get(past_state, 'Не нашли клавиатуру')
@@ -96,7 +96,7 @@ async def cancel(message: Message, state: FSMContext):
         if prompt and not keyboard:
             await message.answer(prompt)
             return
-        if prompt and not keyboard:
+        if prompt and keyboard:
             await message.answer(prompt, reply_markup=keyboard)
             return
 
@@ -218,7 +218,7 @@ async def reg_description(message: Message, state: FSMContext, bot: Bot):
     return bot_msg
 
 
-@router.callback_query(StateRegistration.looking_for, F.data.in_(['looking_for_men', 'looking_for_women', 'looking_for_any']))
+@router.callback_query(StateRegistration.looking_for, F.data.in_(['looking_for_male', 'looking_for_female', 'looking_for_any']))
 @track_message
 @if_one_selected
 async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot: Bot):

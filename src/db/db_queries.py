@@ -177,7 +177,7 @@ async def get_show_form(tg_id: int):
     return (user.show_form, user.show_profile_media) if user else (None, None)
 
 
-async def get_profile_text(tg_id: int):
+async def get_profile_aclt(tg_id: int):
     user = await get_profile(tg_id)
     return user.show_aclt if user else None
 
@@ -244,14 +244,46 @@ async def mark_profile_seen(viewer_tg_id: int,seen_tg_id: int) -> None:
         await session.commit()
 
 
+# GENDER_MAP = {
+#     "gender_male": "male",
+#     "gender_female": "female",
+#     "looking_for_female": "female",
+#     "looking_for_any": None,
+#     "looking_for_both": None,
+#     "looking_for_male": "male",
+# }
 GENDER_MAP = {
-    "gender_male": "male",
-    "gender_female": "female",
-    "looking_for_women": "female",
-    "looking_for_any": None,
-    "looking_for_both": None,
-    "looking_for_men": "male",
+    'looking_for_male': 'gender_male',
+    'looking_for_female': 'gender_female',
+    'looking_for_any': None
 }
+GENDERS = ['gender_male', 'gender_female', 'looking_for_male', 'looking_for_female', 'looking_for_any']
+async def get_ten(age, city, looking_for, tg_id, limit: int=10):
+    age = int(age)
+    city = city.strip()
+    looking_for = looking_for.strip()
+    tg_id = int(tg_id)
+    if looking_for not in GENDERS:
+        print(f"looking_for не в gender_map {looking_for}")
+        return []
+    looking_for_gender = GENDER_MAP[looking_for]
+    age_range = range(age-2, age+3)
+    async with async_session() as session:
+        query = (
+            select(User)
+            .where(
+                User.tg_id != tg_id,
+                User.city == city,
+                User.gender == looking_for_gender,
+                User.age.in_(age_range))
+            .options(selectinload(User.media))
+        )   .order_by(func.abs(User.age-age),
+            User.rating.desc()).limit(limit)
+        result = await session.execute(query)
+        profiles = result.scalars().all()
+        return profiles
+
+
 #[self.age, self.city, self.looking_for, self.tg_id]
 async def get_candidates(spisok: list,limit: int = 30,) -> dict:
     age = int(spisok[0])

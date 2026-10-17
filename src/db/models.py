@@ -64,7 +64,7 @@ class User(Base):
     #show age city looking_for tg_id
     @property
     def show_aclt(self):
-        return f"{self.age, self.city, self.looking_for, self.tg_id}"
+        return self.age, self.city, self.looking_for, self.tg_id
 
     @property
     def show_userid(self):

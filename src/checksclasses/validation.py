@@ -96,7 +96,7 @@ class IsValidLookingfor(BaseFilter):
     async def __call__(self, callback_query: CallbackQuery) -> bool:
         if not callback_query.data:
             return False
-        available_options = ["looking_for_men", "looking_for_women", "looking_for_any"]
+        available_options = ["looking_for_male", "looking_for_female", "looking_for_any"]
         return callback_query.data in available_options
 
 def build_media_group(media_list: list) -> list:
@@ -165,7 +165,11 @@ class LoggingMiddleware(BaseMiddleware):
     async def __call__(self, handler, event, data):
         user = event.from_user
         state: FSMContext = data.get("state")
+        # handler_object = data.get('handler')
+        # if handler_object:
+        #     handler_name = handler_object.callback.__name__
         if state:
-            current_state = await state.get_state()
-            logger.info(f"Текущий State {current_state}")
+                current_state = await state.get_state()
+                logger.info(f"Текущий State {current_state}")
+                # logger.info(f"Текущий хендлер {handler_name}")
         return await handler(event, data)

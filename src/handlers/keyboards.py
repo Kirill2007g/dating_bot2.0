@@ -40,7 +40,7 @@ start_markup = make_keyboard_repr(["Заполнить анкету"], adjust=2)
 
 choose_gender = make_keyboard_inline(["Я Парень", "Я Девушка"], adjust=2, callback_data=["gender_male", "gender_female"])
 
-choose_looking_for = make_keyboard_inline(["Парни", "Девушки", "Без разницы"], adjust=3, callback_data=["looking_for_men", "looking_for_women", "looking_for_any"])
+choose_looking_for = make_keyboard_inline(["Парни", "Девушки", "Без разницы"], adjust=3, callback_data=["looking_for_male", "looking_for_female", "looking_for_any"])
 
 confirm_kb = make_keyboard_repr(["Да", "Нет"], adjust=2)
 
@@ -53,26 +53,23 @@ menu_kb = make_keyboard_repr(
 check_profiles = make_keyboard_repr (
     ["❤️", "👎", "💌", "💤"], adjust=(4, 1)
 )
-settings_kb = make_keyboard_repr(
-    ["Изменить язык", "Премиум", "Написать в поддержку",
-     "Назад"], adjust=(3, 1)
+zzz_kb = make_keyboard_repr(
+    ['1🚀', '2', '3', '4'], adjust=(4, 1)
 )
 anketa_kb = make_keyboard_repr(
     ["Назад",
-        "Заполнить анкету заново", "Изменить несколько пунктов",
+        "Заполнить анкету заново",
       "Изменить 'Имя'", "Изменить 'Возраст'",
         "Изменить 'Пол'", "Изменить 'Город'",
           "Изменить 'О себе'", "Изменить 'Кого вы ищете'",
-            "Изменить 'Медиа'"], adjust=(1, 2, 2, 2, 2, 1)
-)
-anketa_kb_multiple = make_keyboard_repr(
-    ['ВСЕ!',
-          "Изменить 'Имя'", "Изменить 'Возраст'",
-            "Изменить 'Пол'", "Изменить 'Город'",
-              "Изменить 'О себе'", "Изменить 'Кого вы ищете'",
-                "Изменить 'Медиа'"], adjust=(1, 2, 2, 2, 2)
+            "Изменить 'Медиа'"], adjust=(1, 2, 2, 2, 2, )
 )
 
+
+settings_kb = make_keyboard_repr(
+    ["Изменить язык", "Премиум", "Написать в поддержку",
+     'Назад'], adjust=(3, 1)
+)
 settings_kb_premium = make_keyboard_repr(
     ["2 дні • ⭐️ 150", "10 днів • ⭐️ 350",
      "30 днів • ⭐️ 500", "90 днів • ⭐️ 1000",
