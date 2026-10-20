@@ -1,23 +1,30 @@
-from aiogram import F, Bot, Router
-from aiogram.filters import Command
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, ReplyKeyboardRemove
-from src.db.db_queries import get_ten, add_to_seen_ids_table, get_all_seen_ids
-from src.checksclasses.decorators import ( track, track_message, ask,
-                                           clear,
-                                           if_one_selected)
-from src.checksclasses.dictionaries import (ANKETA_ACTIONS, prompts, keyboards,
-                                      FIELD_ORDER_)
-from src.handlers.keyboards import (check_profiles_kb as check_profiles_kb, anketa_kb, choose_gender,
-                                     choose_looking_for, settings_kb, settings_kb_premium,
-                                       settings_kb_language, menu_kb, zzz_kb)
-from src.db.db_queries import (get_profile, get_show_form,
-                                get_profile_media, get_profile_aclt)
+from aiogram.types import Message
+
+from src.checksclasses.dictionaries import ANKETA_ACTIONS, keyboards, prompts
+from src.checksclasses.validation import UserIdMiddleware, build_media_group, media_list
+from src.db.db_queries import (
+    add_to_seen_ids_table,
+    get_all_seen_ids,
+    get_profile,
+    get_profile_aclt,
+    get_profile_media,
+    get_show_form,
+    get_ten,
+)
+from src.handlers.keyboards import (
+    anketa_kb,
+    check_profiles_kb,
+    menu_kb,
+    settings_kb,
+    settings_kb_language,
+    settings_kb_premium,
+    zzz_kb,
+)
 from src.states import StateMenu, StateRegistration
-from src.checksclasses.validation import LoggingMiddleware, build_media_group
-from aiogram.fsm.state import State
 router = Router()
-router.message.middleware(LoggingMiddleware())
+router.message.middleware(UserIdMiddleware())
 lst = [{'User1': {'name': 'Anton',
                   'age': 25,},
         'User2':{'name': 'Kirill',
@@ -25,14 +32,12 @@ lst = [{'User1': {'name': 'Anton',
 
 
 @router.message(StateMenu.menu)
-async def menu(message: Message, state: FSMContext):
+async def menu(message: Message, state: FSMContext, user_id: int):
     if not message.text:
         return
     if message.text == "Смотреть анкеты":
         await message.answer("Смотреть анкеты!!!")
-        if message.from_user is None:
-                    return
-        user_profile = await get_profile(tg_id=message.from_user.id)
+        user_profile = await get_profile(tg_id=user_id)
         await message.answer("ВЗЯЛИ ПРОФИЛЬ")
         if user_profile is None:
             await message.answer("Анкета не найдена.")
@@ -44,15 +49,15 @@ async def menu(message: Message, state: FSMContext):
             return
         age, city, looking_for, tg_id = user_aclt
         await message.answer(f"age: {age} city: {city} looking_for: {looking_for} tg_id: {tg_id}")
-        seen_ids = await get_all_seen_ids(user_tg_id=message.from_user.id)
-        profiles = await get_ten(age, city, looking_for, tg_id, seen_ids=seen_ids)
+        seen_ids = await get_all_seen_ids(user_tg_id=user_id)
+        profiles = get_ten(age, city, looking_for, tg_id, seen_ids=seen_ids)
         await message.answer("УСПЕХ GET TEN")
         if not profiles:
             await message.answer("анкет по критериям не нашли")
             return
         ten_users = []
         for user in profiles:
-            await add_to_seen_ids_table(user_tg_id=message.from_user.id, viewed_profile_id=user.id)
+            await add_to_seen_ids_table(user_tg_id=user_id, viewed_profile_id=user.id)
             await state.set_state(StateMenu.check_profiles)
 
             ten_users.append({'User': {'name': user.name, 'age': user.age, 'city': user.city,
@@ -66,50 +71,30 @@ async def menu(message: Message, state: FSMContext):
         ten_users.pop(0)
         await message.answer(f"{user_name}, {user_age}, {user_city}\n{user_description}", reply_markup=check_profiles_kb)
         first = profiles[0]
-        for m in first.media:
-            media_list = [
-                {'type': m.media_type.value, 'file_id': m.file_id}
+        media_list_ = await media_list(first.media)
+        # for m in first.media:
+        #     media_list = [
+        #         {'type': m.media_type.value, 'file_id': m.file_id}
 
-            ]
-            media_group = build_media_group(media_list)
-            if media_group:
-                await message.answer_media_group(media_group)
+        #     ]
+        media_group = build_media_group(media_list_)
+        if media_group:
+            await message.answer_media_group(media_group)
         await message.answer(f"{first.name}, {first.age}, {first.city}\n{first.description}")
-
-
-            # await add_to_seen_ids_table(user_tg_id=message.from_user.id, viewed_profile_id=user.id)
-            # user_name = ten_users[0].get(string_user).get('name')
-            # user_age = ten_users[0].get(string_user).get('age')
-            # user_city = ten_users[0].get(string_user).get('city')
-            # user_description = ten_users[0].get(string_user).get('description')
-            # await message.answer(f"{user_name}, {user_age}, {user_city}\n{user_description}")
-            # text =(
-            # f"User \n"
-            # f"ID: {user.id}\n"
-            # f"NAME: {user.name}\n"
-            # f"AGE: {user.age}\n"
-            # f"CITY: {user.city}"
-            # f"looking_for: {user.looking_for}\n"
-            # f"gender: {user.gender}\n\n"
-            # f"Media\n"
-            # f"MEDIA_TYPE: {user.media}")
-            # await message.answer(text)
 
     if message.text == "Мой профиль":
         if message.from_user is None:
             return
-        profile_text = await get_profile_aclt(message.from_user.id)
-        profile_media = await get_profile_media(message.from_user.id)
+        profile_text = await get_show_form(user_id)
+        profile_media = await get_profile_media(user_id)
         if profile_media:
-            media_list = [
-                {"type": m.media_type.value, "file_id": m.file_id}
-                for m in profile_media
-            ]
-            media_group = build_media_group(media_list)
+            _media_list = await media_list(profile_media)
+            media_group = build_media_group(_media_list)
             if media_group:
                 await message.answer_media_group(media_group)
         if profile_text is not None:
-            await message.answer(profile_text, reply_markup=menu_kb)
+            name, age, city, description = profile_text
+            await message.answer(f"{name}, {age}, {city}\n{description}", reply_markup=menu_kb)
 
     if message.text == "Настройки":
         await state.set_state(StateMenu.settings)
@@ -122,7 +107,7 @@ async def menu(message: Message, state: FSMContext):
 
 
 @router.message(StateMenu.check_profiles)
-async def check_profiles(message: Message, state: FSMContext):
+async def check_profiles(message: Message, state: FSMContext, user_id: int):
     # boolean = True
     # while boolean == True:
     #     if not message.text:
@@ -150,14 +135,14 @@ async def check_profiles(message: Message, state: FSMContext):
         if not ten_users:
             await you()
     async def you():
-        user_profile = await get_profile(tg_id=message.from_user.id)
+        user_profile = await get_profile(tg_id=user_id)
         user_aclt = await get_profile_aclt(user_profile.tg_id)
         age, city, looking_for, tg_id = user_aclt
-        seen_ids = await get_all_seen_ids(user_tg_id=message.from_user.id)
-        profiles = await get_ten(age, city, looking_for, tg_id, seen_ids=seen_ids)
+        seen_ids = await get_all_seen_ids(user_tg_id=user_id)
+        profiles = get_ten(age, city, looking_for, tg_id, seen_ids=seen_ids)
         ten_users = []
         for user in profiles:
-            await add_to_seen_ids_table(user_tg_id=message.from_user.id, viewed_profile_id=user.id)
+            await add_to_seen_ids_table(user_tg_id=user_id, viewed_profile_id=user.id)
             ten_users.append({'User': {'name': user.name, 'age': user.age, 'city': user.city,
                                                         'looking_for': user.looking_for, 'gender': user.gender,
                                                         'description': user.description}})

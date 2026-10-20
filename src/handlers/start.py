@@ -1,14 +1,9 @@
-import asyncio
-import json
-
 from aiogram import Bot, F, Router
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message, ReplyKeyboardRemove
-from sqlalchemy import func
-from src.checksclasses.dictionaries import asad, prompts, keyboards, cancel_dict
-from src.checksclasses.decorators import (ask, clear, track, track_message,
-                                        if_one_selected)
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from src.checksclasses.decorators import ask, clear, if_one_selected, track_message
+from src.checksclasses.dictionaries import keyboards, prompts, saps
 from src.checksclasses.validation import (
     AlbumMiddleware,
     IsValidAge,
@@ -17,55 +12,53 @@ from src.checksclasses.validation import (
     IsValidGender,
     IsValidLookingfor,
     IsValidName,
-    LoggingMiddleware,
+    UserIdMiddleware,
     build_media_group,
+    media_list,
 )
-from src.db.database import async_sessionmaker
-from src.db.db_queries import get_profile, save_user_in_db, get_profile_media, get_profile_aclt, update_user
-from src.db.models import User
+from src.db.db_queries import (
+    get_profile,
+    get_profile_media,
+    get_show_form,
+    save_user_in_db,
+    update_user,
+)
 from src.handlers.keyboards import (
+    anketa_kb,
     choose_gender,
     choose_looking_for,
     confirm_kb,
     menu_kb,
     start_markup,
-    anketa_kb,
-    check_profiles_kb
 )
 from src.states import StateMenu, StateRegistration
 
 router = Router()
 
 router.message.middleware(AlbumMiddleware())
-router.message.middleware(LoggingMiddleware())
-from functools import wraps
-
-
+router.message.middleware(UserIdMiddleware())
 
 
 
 @router.message(CommandStart())
 @track_message
-async def command_start_handler(message: Message, state: FSMContext):
-    user = message.from_user
-    if user is None:
-        return
-    user_id = user.id
+async def command_start_handler(message: Message, state: FSMContext, user_id: int):
+    await message.answer("⬇️⬇️⬇️⬇️⬇️⬇️⬇️⬇️")
     profile = await get_profile(user_id)
     if profile:
-        profile = await get_profile_aclt(tg_id=user_id)
+        profile = await get_show_form(tg_id=user_id)
         profile_media = await get_profile_media(tg_id=user_id)
-        media_list = [
-            {"type": m.media_type.value, "file_id": m.file_id}
-            for m in profile_media
-        ]
-        media = build_media_group(media_list)
+        media_list_ = await media_list(profile_media)
+        media = build_media_group(media_list_)
         if media:
             sent_msgs = []
             sent_msgs.append(await message.answer("Так выглядит твоя анкета!"))
             media_messages = await message.answer_media_group(media=media)
             sent_msgs.extend(media_messages)
-            sent_msgs.append(await message.answer(str(profile) if profile else "Анкета пока недоступна.", reply_markup=menu_kb))
+            if profile is not None:
+                name, age, city, description = profile
+                profile_text = f"{name}, {age}, {city}\n{description}"
+                sent_msgs.append(await message.answer(str(profile_text) if profile else "Анкета пока недоступна.", reply_markup=menu_kb))
             await state.set_state(StateMenu.menu)
             return sent_msgs
     await state.clear()
@@ -73,9 +66,13 @@ async def command_start_handler(message: Message, state: FSMContext):
     await state.set_state(StateRegistration.name)
     return sent_msg
 
+# @router.message()
+# async def get_sticker_id(message: Message):
+#     await message.answer(message..file_id)
 
+    await message.answer(f"Sticker id {message.sticker.file_id}")
 @router.message(F.text == 'Назад')
-async def cancel(message: Message, state: FSMContext):
+async def cancel(message: Message, state: FSMContext, user_id: int):
     current_state = await state.get_state()
     if current_state is None:
         await message.answer("/start")
@@ -85,7 +82,7 @@ async def cancel(message: Message, state: FSMContext):
         await state.set_state(StateMenu.anketa)
         return
     else:
-        past_state = asad.get(current_state, 'sa')
+        past_state = saps.get(current_state, 'sa')
         await state.set_state(past_state)
         prompt = prompts.get(past_state, 'Не нашли промпт')
         keyboard = keyboards.get(past_state, 'Не нашли клавиатуру')
@@ -114,14 +111,11 @@ async def start_registration(message: Message, state: FSMContext, bot: Bot):
 @router.message(StateRegistration.name)
 @track_message
 @if_one_selected
-async def reg_name(message: Message, state: FSMContext, bot: Bot):
+async def reg_name(message: Message, state: FSMContext, bot: Bot, user_id: int):
     if not await IsValidName()(message):
         return await message.answer("Введи имя")
     await clear(message.chat.id, bot)
-    user = message.from_user
-    if user is None:
-        return
-    await state.update_data(tg_id=user.id, name=message.text)
+    await state.update_data(tg_id=user_id, name=message.text)
     data = await state.get_data()
     if data.get("is_single_edit", False):
         return True
@@ -131,17 +125,14 @@ async def reg_name(message: Message, state: FSMContext, bot: Bot):
 @router.message(StateRegistration.age)
 @track_message
 @if_one_selected
-async def reg_age(message: Message, state: FSMContext, bot: Bot):
+async def reg_age(message: Message, state: FSMContext, bot: Bot, user_id: int):
     if not await IsValidAge()(message):
         return await message.answer("Введи возраст ")
     age_text = message.text
     if age_text is None:
         return await message.answer("Введи возраст ")
     await clear(message.chat.id, bot)
-    user = message.from_user
-    if user is None:
-        return
-    await state.update_data(tg_id=user.id, age=int(age_text))
+    await state.update_data(tg_id=user_id, age=int(age_text))
     data = await state.get_data()
     if data.get("is_single_edit", False):
         return True
@@ -183,14 +174,11 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
 @router.message(StateRegistration.city)
 @track_message
 @if_one_selected
-async def reg_city(message: Message, state: FSMContext, bot: Bot):
+async def reg_city(message: Message, state: FSMContext, bot: Bot, user_id: int):
     if not await IsValidCity()(message):
         return await message.answer("Введите название города")
-    user = message.from_user
-    if user is None:
-        return
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=user.id, city=message.text)
+    await state.update_data(tg_id=user_id, city=message.text)
     data = await state.get_data()
     if data.get("is_single_edit", False):
         return True
@@ -201,14 +189,11 @@ async def reg_city(message: Message, state: FSMContext, bot: Bot):
 @router.message(StateRegistration.description)
 @track_message
 @if_one_selected
-async def reg_description(message: Message, state: FSMContext, bot: Bot):
+async def reg_description(message: Message, state: FSMContext, bot: Bot, user_id: int):
     if not await IsValidDescription()(message):
         return await message.answer("Вы превысили лимит в 1000 символов")
-    user = message.from_user
-    if user is None:
-        return
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=user.id, description=message.text)
+    await state.update_data(tg_id=user_id, description=message.text)
     data = await state.get_data()
     if data.get("is_single_edit", False):
         return True

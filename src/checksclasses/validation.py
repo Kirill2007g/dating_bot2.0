@@ -4,7 +4,7 @@ import asyncio
 import redis.asyncio as aioredis
 from aiogram import BaseMiddleware
 from aiogram.filters import BaseFilter
-from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message
+from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message, TelegramObject
 from aiogram.fsm.context import FSMContext
 
 from src.config import settings
@@ -122,7 +122,6 @@ class AlbumMiddleware(BaseMiddleware):
     def __init__(self, latency: float = 0.2):
         self.latency = latency
         self.album_data: dict[str, list[Message]] = {}
-
     async def __call__(
         self,
         handler: Callable[[Message, dict[str, Any]], Awaitable[Any]],
@@ -158,19 +157,38 @@ class AlbumMiddleware(BaseMiddleware):
                 user_media.append({"media_type": "VIDEO_NOTE", "file_id": msg.video_note.file_id})
         return user_media
 
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-class LoggingMiddleware(BaseMiddleware):
-    async def __call__(self, handler, event, data):
-        user = event.from_user
-        state: FSMContext = data.get("state")
-        # handler_object = data.get('handler')
-        # if handler_object:
-        #     handler_name = handler_object.callback.__name__
-        if state:
-                current_state = await state.get_state()
-                logger.info(f"Текущий State {current_state}")
-                # logger.info(f"Текущий хендлер {handler_name}")
+class UserIdMiddleware(BaseMiddleware):
+    async def __call__(
+            self,
+            handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+            event: TelegramObject,
+            data: dict[str, Any],
+    ) -> Any:
+        user = data.get("event_from_user")
+        if user is None:
+            return
+        data["user_id"] = user.id
         return await handler(event, data)
+# import logging
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
+
+# class LoggingMiddleware(BaseMiddleware):
+#     async def __call__(self, handler, event, data):
+#         user = event.from_user
+#         state: FSMContext = data.get("state")
+#         # handler_object = data.get('handler')
+#         # if handler_object:
+#         #     handler_name = handler_object.callback.__name__
+#         if state:
+#                 current_state = await state.get_state()
+#                 logger.info(f"Текущий State {current_state}")
+#                 # logger.info(f"Текущий хендлер {handler_name}")
+#         return await handler(event, data)
+
+async def media_list(profile_media):
+    return [
+            {"type": m.media_type.value, "file_id": m.file_id}
+            for m in profile_media
+        ]

@@ -169,7 +169,7 @@ async def get_profile(tg_id: int) -> User | None:
 
 async def get_show_form(tg_id: int):
     user = await get_profile(tg_id)
-    return (user.show_form, user.show_profile_media) if user else (None, None)
+    return user.show_form if user else None
 
 
 async def get_profile_aclt(tg_id: int):

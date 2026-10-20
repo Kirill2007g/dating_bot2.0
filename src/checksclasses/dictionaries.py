@@ -3,21 +3,10 @@ from src.handlers.keyboards import ( choose_gender, choose_looking_for,
                                     anketa_kb, settings_kb, menu_kb)
 _messages: dict[int, list[int]] = {}
 
-FIELD_ORDER = {"name", "age", "gender",
-               "city", "description", "looking_for",
-               "media"}
-FIELD_ORDER_ = (StateRegistration.name, StateRegistration.age, StateRegistration.gender,
-                 StateRegistration.city, StateRegistration.description, StateRegistration.looking_for,
-                 StateRegistration.media)
-fsm_data_dict = {
-    "name": None,
-    "age": None,
-    "gender": None,
-    "city": None,
-    "description": None,
-    "looking_for": None,
-    "media": None,
-}
+# {1: [5, 4, 3, 2, 1],
+#  2: [1, 2, 3, 4, 5],
+#  3: [6, 7],}
+
 
 FIELD_PROMPTS = {
     "name": "Как тебя зовут?",
@@ -27,15 +16,6 @@ FIELD_PROMPTS = {
     "description": "Теперь напишите о себе",
     "looking_for": "Кого вы ищете",
     "media": "Пришли фото/видео до 3 штук",
-}
-dassdf = {
-    "name": "Изменить 'Имя'",
-    "age": "Изменить 'Возраст'",
-    "gender": "Изменить 'Пол'",
-    "city": "Изменить 'Город'",
-    "description": "Изменить 'О себе'",
-    "looking_for": "Изменить 'Кого вы ищете'",
-    "media": "Изменить 'Медиа'",
 }
 
 
@@ -61,7 +41,9 @@ prompts = {
         StateMenu.settings: "Settings",
         StateMenu.anketa: 'state_anketa'
     }
-asad = {
+
+#state and past state сокращенно saps
+saps = {
         StateMenu.anketa: 'StateMenu.menu',
         StateMenu.settings: StateMenu.menu,
         StateRegistration.media: StateRegistration.looking_for,
@@ -70,7 +52,6 @@ asad = {
         StateRegistration.city: StateRegistration.gender,
         StateRegistration.gender: StateRegistration.age,
         StateRegistration.age: StateRegistration.name}
-cancel_dict = {v: k for k, v in asad.items()}
 keyboards = {
         StateMenu.anketa: anketa_kb,
         StateMenu.settings: settings_kb,
@@ -78,5 +59,4 @@ keyboards = {
         StateRegistration.looking_for: choose_looking_for,
         StateMenu.menu: menu_kb,
     }
-button_to_key = {v: k for k, v in dassdf.items()}
-anketa_actions_reverse = {v: k for k, v in ANKETA_ACTIONS.items()}
+

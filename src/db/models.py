@@ -76,7 +76,7 @@ class User(Base):
 
     @property
     def show_form(self):
-        return f"{self.name} {self.age} {self.city}"
+        return self.name, self.age, self.city, self.description
 
     # @property
     # def show_profile_media(self):
