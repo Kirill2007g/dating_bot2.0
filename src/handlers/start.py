@@ -1,5 +1,5 @@
 from aiogram import Bot, F, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from src.checksclasses.decorators import ask, clear, if_one_selected, track_message
@@ -108,12 +108,14 @@ async def start_registration(message: Message, state: FSMContext, bot: Bot):
     bot_msg = await message.answer("Как тебя зовут?", reply_markup=ReplyKeyboardRemove())
     return bot_msg
 
-@router.message(StateRegistration.name)
+
+
+@router.message(StateRegistration.name, IsValidName())
 @track_message
 @if_one_selected
 async def reg_name(message: Message, state: FSMContext, bot: Bot, user_id: int):
-    if not await IsValidName()(message):
-        return await message.answer("Введи имя")
+    # if not await IsValidName()(message):
+    #     return await message.answer("Введи имя")
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=user_id, name=message.text)
     data = await state.get_data()
@@ -122,12 +124,10 @@ async def reg_name(message: Message, state: FSMContext, bot: Bot, user_id: int):
     await state.set_state(StateRegistration.age)
     return await ask(message, "Сколько тебе лет?")
 
-@router.message(StateRegistration.age)
+@router.message(StateRegistration.age, IsValidAge())
 @track_message
 @if_one_selected
 async def reg_age(message: Message, state: FSMContext, bot: Bot, user_id: int):
-    if not await IsValidAge()(message):
-        return await message.answer("Введи возраст ")
     age_text = message.text
     if age_text is None:
         return await message.answer("Введи возраст ")
@@ -170,13 +170,14 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
     bot_msg = await ask(message, "Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
     return bot_msg
 
+@router.message(StateRegistration.gender)
+async def gender_wrong_input(message: Message):
+    await message.answer("Выбери кнопкой, какой у тебя пол?", reply_markup=choose_gender)
 
-@router.message(StateRegistration.city)
+@router.message(StateRegistration.city, IsValidCity())
 @track_message
 @if_one_selected
 async def reg_city(message: Message, state: FSMContext, bot: Bot, user_id: int):
-    if not await IsValidCity()(message):
-        return await message.answer("Введите название города")
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=user_id, city=message.text)
     data = await state.get_data()
@@ -186,12 +187,10 @@ async def reg_city(message: Message, state: FSMContext, bot: Bot, user_id: int):
     bot_msg = await ask(message, "Теперь напишите о себе")
     return bot_msg
 
-@router.message(StateRegistration.description)
+@router.message(StateRegistration.description, IsValidDescription())
 @track_message
 @if_one_selected
 async def reg_description(message: Message, state: FSMContext, bot: Bot, user_id: int):
-    if not await IsValidDescription()(message):
-        return await message.answer("Вы превысили лимит в 1000 символов")
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=user_id, description=message.text)
     data = await state.get_data()
@@ -227,6 +226,9 @@ async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot:
     bot_msg = await ask(callback_query.message, "Теперь пришлите фото/видео до 3 штук")
     return bot_msg
 
+@router.message(StateRegistration.looking_for)
+async def looking_for_wrong_input(message: Message):
+    await message.answer("Выбери кнопкой, кого вы ищётё", reply_markup=choose_looking_for)
 
 @router.message(StateRegistration.media, F.photo | F.video | F.video_note)
 @track_message
@@ -256,6 +258,9 @@ async def reg_media(message: Message, state: FSMContext, bot: Bot, user_media):
         await state.set_state(StateRegistration.confirm)
         return [bot_msg, bot_msg2, bot_msg3]
 
+@router.message(StateRegistration.media)
+async def media_wrong_input(message: Message):
+    await message.answer("Отправьте фото/видео до 3 штук")
 
 @router.message(StateRegistration.confirm, F.text.in_({"Да", "Нет"}))
 @track_message
@@ -263,14 +268,24 @@ async def reg_confirm(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     if message.text == "Да":
         await clear(message.chat.id, bot)
-        success = await save_user_in_db(fsm_data=data)
+        await save_user_in_db(fsm_data=data)
         await message.answer("Отлично анкета сохранена!", reply_markup=menu_kb)
         await state.set_state(StateMenu.menu)
     else:
         await clear(message.chat.id, bot)
         await message.answer("Выберите какой пункт хотите исправить:\n", reply_markup=anketa_kb)
 
+INVALID_TEXT = {
+    StateRegistration.name.state: "Введи имя",
+    StateRegistration.age.state: "Введи возраст",
+    StateRegistration.city.state: "Введи название города",
+    StateRegistration.description.state: "Вы превысили лимит в 1000 символов"
 
+}
+@router.message(StateFilter(StateRegistration.name, StateRegistration.age,
+                            StateRegistration.city, StateRegistration.description))
+async def invalid_input(message: Message, state: FSMContext):
+    await message.answer(INVALID_TEXT[await state.get_state()])
 
 
 

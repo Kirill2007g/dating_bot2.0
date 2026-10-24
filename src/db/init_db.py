@@ -1,6 +1,6 @@
 import asyncio
 from src.db.database import Base, engine
-from src.db import models
+from src.db import models # noqa: F401
 from sqlalchemy import text
 
 

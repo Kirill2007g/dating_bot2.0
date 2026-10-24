@@ -25,11 +25,6 @@ from src.handlers.keyboards import (
 from src.states import StateMenu, StateRegistration
 router = Router()
 router.message.middleware(UserIdMiddleware())
-lst = [{'User1': {'name': 'Anton',
-                  'age': 25,},
-        'User2':{'name': 'Kirill',
-                 'age': 25,}}]
-
 
 @router.message(StateMenu.menu)
 async def menu(message: Message, state: FSMContext, user_id: int):
@@ -72,11 +67,6 @@ async def menu(message: Message, state: FSMContext, user_id: int):
         await message.answer(f"{user_name}, {user_age}, {user_city}\n{user_description}", reply_markup=check_profiles_kb)
         first = profiles[0]
         media_list_ = await media_list(first.media)
-        # for m in first.media:
-        #     media_list = [
-        #         {'type': m.media_type.value, 'file_id': m.file_id}
-
-        #     ]
         media_group = build_media_group(media_list_)
         if media_group:
             await message.answer_media_group(media_group)

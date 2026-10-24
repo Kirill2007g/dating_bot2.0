@@ -10,9 +10,43 @@ from aiogram.fsm.context import FSMContext
 from src.config import settings
 from src.db.db_queries import check_city_in_db, save_in_city_mapping
 from src.db.validation_queries import validate_city_geopy
-
+import re
 dadata_api_key = settings.dadata_api_key.get_secret_value()
 dadata_secret_key = settings.dadata_secret_key.get_secret_value()
+
+# LETTERS = "A-Za-zА-Яа-яЁёІіЇїЄєҐґ"
+# SOCIALS = ['Instagram', 'insta', 'inst', 'инста', 'инст', 'Инстаграм']
+# SOCIALS_RE = re.compile('', flags=re.IGNORECASE)
+# LINKS = ['https', 'www']
+# LINKS_RE = re.compile(r"\b(?:http|ftp|tg|ws)s?://\S+", re.IGNORECASE)
+# PATTERNS = [
+#     re.compile(r"""
+#     \b              # Граница слова (а не начало! Конец слова тоже проверяется через \b)
+#     (?:             # Незапоминающая группа (выключает захват в match.groups() и работает быстрее)
+#     http|ftp|tg|ws) # Одно из указанных начал протокола
+#     s?              # Буква 's' может встречаться 0 или 1 раз (для https, ftps и т.д.)
+#     ://             # Буквальные символы ://
+#     \S+             # Один или более символов (Кроме пробельного символа)
+#     """, re.IGNORECASE | re.VERBOSE),
+#     re.compile(r"""
+#     \b      # Граница слова
+#     www     # Буквально www
+#     \.      # Буквально точка
+#     \S+     # Один или более символов (Кроме пробельного символа)
+#     """, re.IGNORECASE | re.VERBOSE),
+#     re.compile(rf"""\b""", re.IGNORECASE, re.VERBOSE)
+
+
+# ]
+#re.compile(r"\b(?:https?|ftp|tg|ws)s?://\S+", re.I)
+
+#re.compile(r"\bwww\.\S+", re.I),
+
+#re.compile(rf"\b[\w-]+(?:\.[\w-]+)*\.(?:{TLDS})\b(?:/\S*)?", re.I)
+
+
+email_regexp = r"^[a-zA-Z0-9_.]+@[a-zA-Z0-9]+\.[a-zA-Z0-9-.]+$"
+domens_regexp = r"\b"
 
 class IsValidName(BaseFilter):
     async def __call__(self, message: Message) -> bool:
@@ -88,6 +122,11 @@ class IsValidCity(BaseFilter):
 class IsValidDescription(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         if not message.text:
+            return False
+        pattern = re.compile(r'insta', flags=re.I)
+        check_re = pattern.search(message.text)
+        if check_re:
+            await message.answer("Убери insta с описания")
             return False
         description = message.text
         return not len(description) > 1000
