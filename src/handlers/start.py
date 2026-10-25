@@ -75,23 +75,19 @@ async def cancel(message: Message, state: FSMContext, user_id: int):
         await message.answer("/start")
         return
     data = await state.get_data()
-    if data.get('is_single_edit', False):
-        await state.set_state(StateMenu.anketa)
+    past_state = saps.get(current_state, 'sa')
+    await state.set_state(past_state)
+    prompt = prompts.get(past_state, 'Не нашли промпт')
+    keyboard = keyboards.get(past_state, 'Не нашли клавиатуру')
+    if not prompt:
+        await message.answer('Не нашли промпт')
         return
-    else:
-        past_state = saps.get(current_state, 'sa')
-        await state.set_state(past_state)
-        prompt = prompts.get(past_state, 'Не нашли промпт')
-        keyboard = keyboards.get(past_state, 'Не нашли клавиатуру')
-        if not prompt:
-            await message.answer('Не нашли промпт')
-            return
-        if prompt and not keyboard:
-            await message.answer(prompt)
-            return
-        if prompt and keyboard:
-            await message.answer(prompt, reply_markup=keyboard)
-            return
+    if prompt and not keyboard:
+        await message.answer(prompt)
+        return
+    if prompt and keyboard:
+        await message.answer(prompt, reply_markup=keyboard)
+        return
 
     await state.clear()
     await message.answer("canceled", reply_markup=ReplyKeyboardRemove())
@@ -107,7 +103,7 @@ async def start_registration(message: Message, state: FSMContext, bot: Bot):
 
 
 
-@router.message(StateRegistration.name, IsValidName(), IsSingleEdit())
+@router.message(StateRegistration.name, IsValidName())
 @track_message
 async def reg_name(message: Message, state: FSMContext, bot: Bot, user_id: int):
     await clear(message.chat.id, bot)
@@ -115,7 +111,7 @@ async def reg_name(message: Message, state: FSMContext, bot: Bot, user_id: int):
     await state.set_state(StateRegistration.age)
     return await ask(message, "Сколько тебе лет?")
 
-@router.message(StateRegistration.age, IsValidAge(), IsSingleEdit())
+@router.message(StateRegistration.age, IsValidAge())
 @track_message
 async def reg_age(message: Message, state: FSMContext, bot: Bot, user_id: int):
     age_text = message.text
@@ -148,7 +144,7 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
 async def gender_wrong_input(message: Message):
     await message.answer("Выбери кнопкой, какой у тебя пол?", reply_markup=choose_gender)
 
-@router.message(StateRegistration.city, IsValidCity(), IsSingleEdit())
+@router.message(StateRegistration.city, IsValidCity())
 @track_message
 async def reg_city(message: Message, state: FSMContext, bot: Bot, user_id: int):
     await clear(message.chat.id, bot)
@@ -157,7 +153,7 @@ async def reg_city(message: Message, state: FSMContext, bot: Bot, user_id: int):
     bot_msg = await ask(message, "Теперь напишите о себе")
     return bot_msg
 
-@router.message(StateRegistration.description, IsValidDescription(), IsSingleEdit())
+@router.message(StateRegistration.description, IsValidDescription())
 @track_message
 async def reg_description(message: Message, state: FSMContext, bot: Bot, user_id: int):
     await clear(message.chat.id, bot)
