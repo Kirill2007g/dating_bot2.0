@@ -161,7 +161,7 @@ async def update_user(data: dict, flag_media: bool = False):
             print(f"Ошибка при обновлении пользователя {tg_id} в БД: {e}")
             return False
 
-async def update_value(tg_id: int, field, value):
+async def update_value(tg_id: int, field: str, value: str | int):
         if field not in ALLOWED_FIELDS or not value:
             return False
         async with async_session() as session:

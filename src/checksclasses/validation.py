@@ -1,52 +1,24 @@
-import json
-from typing import Any, Awaitable, Callable
 import asyncio
-import redis.asyncio as aioredis
+import json
+import re
+from src.checksclasses.text_filters import LINK_PATTERNS, SOCIAL_PATTERNS
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 from aiogram import BaseMiddleware
 from aiogram.filters import BaseFilter
-from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message, TelegramObject
 from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message, TelegramObject
+import redis.asyncio as aioredis
 
 from src.config import settings
 from src.db.db_queries import check_city_in_db, save_in_city_mapping
 from src.db.validation_queries import validate_city_geopy
-import re
 dadata_api_key = settings.dadata_api_key.get_secret_value()
 dadata_secret_key = settings.dadata_secret_key.get_secret_value()
 
-# LETTERS = "A-Za-zА-Яа-яЁёІіЇїЄєҐґ"
-# SOCIALS = ['Instagram', 'insta', 'inst', 'инста', 'инст', 'Инстаграм']
-# SOCIALS_RE = re.compile('', flags=re.IGNORECASE)
-# LINKS = ['https', 'www']
-# LINKS_RE = re.compile(r"\b(?:http|ftp|tg|ws)s?://\S+", re.IGNORECASE)
-# PATTERNS = [
-#     re.compile(r"""
-#     \b              # Граница слова (а не начало! Конец слова тоже проверяется через \b)
-#     (?:             # Незапоминающая группа (выключает захват в match.groups() и работает быстрее)
-#     http|ftp|tg|ws) # Одно из указанных начал протокола
-#     s?              # Буква 's' может встречаться 0 или 1 раз (для https, ftps и т.д.)
-#     ://             # Буквальные символы ://
-#     \S+             # Один или более символов (Кроме пробельного символа)
-#     """, re.IGNORECASE | re.VERBOSE),
-#     re.compile(r"""
-#     \b      # Граница слова
-#     www     # Буквально www
-#     \.      # Буквально точка
-#     \S+     # Один или более символов (Кроме пробельного символа)
-#     """, re.IGNORECASE | re.VERBOSE),
-#     re.compile(rf"""\b""", re.IGNORECASE, re.VERBOSE)
 
 
-# ]
-#re.compile(r"\b(?:https?|ftp|tg|ws)s?://\S+", re.I)
-
-#re.compile(r"\bwww\.\S+", re.I),
-
-#re.compile(rf"\b[\w-]+(?:\.[\w-]+)*\.(?:{TLDS})\b(?:/\S*)?", re.I)
-
-
-email_regexp = r"^[a-zA-Z0-9_.]+@[a-zA-Z0-9]+\.[a-zA-Z0-9-.]+$"
-domens_regexp = r"\b"
 
 
 
@@ -119,19 +91,26 @@ class IsValidCity(BaseFilter):
                     print("Нигде ничего не нашли")
                     return False
 
+ALL_PATTERNS = (*LINK_PATTERNS, *SOCIAL_PATTERNS)
+
+async def clean_text(text: str) -> str:
+    for pattern in ALL_PATTERNS:
+        text = pattern.sub("", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)  # схлопываем двойные пробелы, переносы строк остаются
+    return text.strip()
 
 
-class IsValidDescription(BaseFilter):
-    async def __call__(self, message: Message) -> bool:
+async def is_valid_description(message: Message) -> bool | str:
         if not message.text:
             return False
-        pattern = re.compile(r'insta', flags=re.I)
-        check_re = pattern.search(message.text)
-        if check_re:
-            await message.answer("Убери insta с описания")
+        description = await clean_text(message.text)
+        if not description:
+            await message.answer("После удаления ссылок и соцсетей текст пустой, напиши о себе")
             return False
-        description = message.text
-        return not len(description) > 1000
+        if len(description) > 1000:
+            await message.answer("Вы превысили лимит в 1000 символов")
+            return False
+        return description
 
 
 class IsValidLookingfor(BaseFilter):
@@ -221,19 +200,6 @@ class IsSingleEdit(BaseFilter):
     async def __call__(self, event: TelegramObject, state: FSMContext) -> bool:
         data = await state.get_data()
         return bool(data.get("is_single_edit", False))
-# import logging
-# logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger(__name__)
 
-# class LoggingMiddleware(BaseMiddleware):
-#     async def __call__(self, handler, event, data):
-#         user = event.from_user
-#         state: FSMContext = data.get("state")
-#         # handler_object = data.get('handler')
-#         # if handler_object:
-#         #     handler_name = handler_object.callback.__name__
-#         if state:
-#                 current_state = await state.get_state()
-#                 logger.info(f"Текущий State {current_state}")
-#                 # logger.info(f"Текущий хендлер {handler_name}")
-#         return await handler(event, data)
+
+

@@ -3,12 +3,8 @@ from src.handlers.keyboards import ( choose_gender, choose_looking_for,
                                     anketa_kb, settings_kb, menu_kb)
 _messages: dict[int, list[int]] = {}
 
-# {1: [5, 4, 3, 2, 1],
-#  2: [1, 2, 3, 4, 5],
-#  3: [6, 7],}
 
-
-FIELD_PROMPTS = {
+FIELD_PROMPTS: dict[str, str] = {
     "name": "Как тебя зовут?",
     "age": "Сколько тебе лет?",
     "gender": "Укажи пол",
@@ -17,8 +13,14 @@ FIELD_PROMPTS = {
     "looking_for": "Кого вы ищете",
     "media": "Пришли фото/видео до 3 штук",
 }
+INVALID_TEXT: dict[str | None, str] = {
+    StateRegistration.name.state: "Введи имя",
+    StateRegistration.age.state: "Введи возраст",
+    StateRegistration.city.state: "Введи название города",
+    StateRegistration.description.state: "Вы превысили лимит в 1000 символов"
 
-ALLOWED_FIELDS = {"name", "age", "city", "description", "gender", "looking_for"}
+}
+ALLOWED_FIELDS: set[str] = {"name", "age", "city", "description", "gender", "looking_for"}
 ANKETA_ACTIONS: dict[str, State] = {
     "Заполнить анкету заново": StateRegistration.make_anketa_again,
     "Изменить 'Имя'": StateRegistration.name,
@@ -29,7 +31,7 @@ ANKETA_ACTIONS: dict[str, State] = {
     "Изменить 'Кого вы ищете'": StateRegistration.looking_for,
     "Изменить 'Медиа'": StateRegistration.media,
 }
-prompts = {
+prompts: dict[State | None, str] = {
         StateRegistration.name: "Как тебя зовут?",
         StateRegistration.age: "Сколько тебе лет?",
         StateRegistration.gender: "Укажи пол",
@@ -41,7 +43,7 @@ prompts = {
         StateMenu.settings: "Settings",
         StateMenu.anketa: 'state_anketa'
     }
-STATE_TO_FIELD = {
+STATE_TO_FIELD: dict[State, str] = {
     StateRegistration.name: "name",
     StateRegistration.age: "age",
     StateRegistration.city: "city",
@@ -50,8 +52,8 @@ STATE_TO_FIELD = {
     StateRegistration.looking_for: "looking_for"
 }
 #state and past state сокращенно saps
-saps = {
-        StateMenu.anketa: 'StateMenu.menu',
+saps: dict[State, State] = {
+        StateMenu.anketa: StateMenu.menu,
         StateMenu.settings: StateMenu.menu,
         StateRegistration.media: StateRegistration.looking_for,
         StateRegistration.looking_for: StateRegistration.description,

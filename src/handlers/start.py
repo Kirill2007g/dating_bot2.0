@@ -3,12 +3,12 @@ from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from src.checksclasses.decorators import ask, clear, track_message
-from src.checksclasses.dictionaries import keyboards, prompts, saps
+from src.checksclasses.dictionaries import keyboards, prompts, saps, INVALID_TEXT
 from src.checksclasses.validation import (
     AlbumMiddleware,
     IsValidAge,
     IsValidCity,
-    IsValidDescription,
+    is_valid_description,
     IsValidGender,
     IsValidLookingfor,
     IsValidName,
@@ -153,9 +153,12 @@ async def reg_city(message: Message, state: FSMContext, bot: Bot, user_id: int):
     bot_msg = await ask(message, "Теперь напишите о себе")
     return bot_msg
 
-@router.message(StateRegistration.description, IsValidDescription())
+@router.message(StateRegistration.description)
 @track_message
 async def reg_description(message: Message, state: FSMContext, bot: Bot, user_id: int):
+    valid_description = await is_valid_description(message)
+    if valid_description is False:
+        return
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=user_id, description=message.text)
     await state.set_state(StateRegistration.looking_for)
@@ -215,27 +218,10 @@ async def reg_confirm(message: Message, state: FSMContext, bot: Bot):
         await message.answer("Выберите какой пункт хотите исправить:\n", reply_markup=anketa_kb)
 
 
-INVALID_TEXT = {
-    StateRegistration.name.state: "Введи имя",
-    StateRegistration.age.state: "Введи возраст",
-    StateRegistration.city.state: "Введи название города",
-    StateRegistration.description.state: "Вы превысили лимит в 1000 символов"
-
-}
 @router.message(StateFilter(StateRegistration.name, StateRegistration.age,
                             StateRegistration.city, StateRegistration.description))
 async def invalid_input(message: Message, state: FSMContext):
     await message.answer(INVALID_TEXT[await state.get_state()])
-
-
-
-
-
-
-
-
-
-
 
 
 
