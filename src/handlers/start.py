@@ -2,7 +2,7 @@ from aiogram import Bot, F, Router
 from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
-from src.checksclasses.decorators import ask, clear, if_one_selected, track_message
+from src.checksclasses.decorators import ask, clear, track_message
 from src.checksclasses.dictionaries import keyboards, prompts, saps
 from src.checksclasses.validation import (
     AlbumMiddleware,
@@ -13,6 +13,7 @@ from src.checksclasses.validation import (
     IsValidLookingfor,
     IsValidName,
     UserIdMiddleware,
+    IsSingleEdit,
     build_media_group,
     media_list,
 )
@@ -66,11 +67,7 @@ async def command_start_handler(message: Message, state: FSMContext, user_id: in
     await state.set_state(StateRegistration.name)
     return sent_msg
 
-# @router.message()
-# async def get_sticker_id(message: Message):
-#     await message.answer(message..file_id)
 
-    await message.answer(f"Sticker id {message.sticker.file_id}")
 @router.message(F.text == 'Назад')
 async def cancel(message: Message, state: FSMContext, user_id: int):
     current_state = await state.get_state()
@@ -110,32 +107,22 @@ async def start_registration(message: Message, state: FSMContext, bot: Bot):
 
 
 
-@router.message(StateRegistration.name, IsValidName())
+@router.message(StateRegistration.name, IsValidName(), IsSingleEdit())
 @track_message
-@if_one_selected
 async def reg_name(message: Message, state: FSMContext, bot: Bot, user_id: int):
-    # if not await IsValidName()(message):
-    #     return await message.answer("Введи имя")
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=user_id, name=message.text)
-    data = await state.get_data()
-    if data.get("is_single_edit", False):
-        return True
     await state.set_state(StateRegistration.age)
     return await ask(message, "Сколько тебе лет?")
 
-@router.message(StateRegistration.age, IsValidAge())
+@router.message(StateRegistration.age, IsValidAge(), IsSingleEdit())
 @track_message
-@if_one_selected
 async def reg_age(message: Message, state: FSMContext, bot: Bot, user_id: int):
     age_text = message.text
     if age_text is None:
         return await message.answer("Введи возраст ")
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=user_id, age=int(age_text))
-    data = await state.get_data()
-    if data.get("is_single_edit", False):
-        return True
     await state.set_state(StateRegistration.gender)
     bot_msg = await ask(message, "Теперь выберем пол", reply_markup=choose_gender)
     return bot_msg
@@ -153,19 +140,6 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
         return
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=callback_query.from_user.id, gender=callback_query.data)
-    data = await state.get_data()
-    is_single_edit = data.get("is_single_edit", False)
-    if is_single_edit:
-        db_success = await update_user(data)
-        if db_success:
-            print("База данных успешно обновлена")
-        else:
-            print("База данных не обновлена")
-        await state.update_data(is_single_edit=False)
-        await state.set_state(StateMenu.anketa)
-        await message.answer("Вы успешно изменили Пол", reply_markup=anketa_kb)
-        return
-
     await state.set_state(StateRegistration.city)
     bot_msg = await ask(message, "Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
     return bot_msg
@@ -174,28 +148,20 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
 async def gender_wrong_input(message: Message):
     await message.answer("Выбери кнопкой, какой у тебя пол?", reply_markup=choose_gender)
 
-@router.message(StateRegistration.city, IsValidCity())
+@router.message(StateRegistration.city, IsValidCity(), IsSingleEdit())
 @track_message
-@if_one_selected
 async def reg_city(message: Message, state: FSMContext, bot: Bot, user_id: int):
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=user_id, city=message.text)
-    data = await state.get_data()
-    if data.get("is_single_edit", False):
-        return True
     await state.set_state(StateRegistration.description)
     bot_msg = await ask(message, "Теперь напишите о себе")
     return bot_msg
 
-@router.message(StateRegistration.description, IsValidDescription())
+@router.message(StateRegistration.description, IsValidDescription(), IsSingleEdit())
 @track_message
-@if_one_selected
 async def reg_description(message: Message, state: FSMContext, bot: Bot, user_id: int):
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=user_id, description=message.text)
-    data = await state.get_data()
-    if data.get("is_single_edit", False):
-        return True
     await state.set_state(StateRegistration.looking_for)
     bot_msg = await ask(message, "Кого вы ищете", reply_markup=choose_looking_for)
     return bot_msg
@@ -203,7 +169,6 @@ async def reg_description(message: Message, state: FSMContext, bot: Bot, user_id
 
 @router.callback_query(StateRegistration.looking_for, F.data.in_(['looking_for_male', 'looking_for_female', 'looking_for_any']))
 @track_message
-@if_one_selected
 async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot: Bot):
     if callback_query.message is None:
         return
@@ -211,17 +176,6 @@ async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot:
         return await callback_query.message.answer("Кого вы ищете", reply_markup=choose_looking_for)
     await clear(callback_query.message.chat.id, bot)
     await state.update_data(tg_id=callback_query.from_user.id, looking_for=callback_query.data)
-    data = await state.get_data()
-    if data.get("is_single_edit", False):
-        db_success = await update_user(data)
-        if db_success:
-            print("База данных успешно обновлена")
-        else:
-            print("База данных не обновлена")
-        await state.update_data(is_single_edit=False)
-        await state.set_state(StateMenu.anketa)
-        await callback_query.message.answer("Вы успешно изменили looking_for", reply_markup=anketa_kb)
-        return
     await state.set_state(StateRegistration.media)
     bot_msg = await ask(callback_query.message, "Теперь пришлите фото/видео до 3 штук")
     return bot_msg
@@ -238,17 +192,6 @@ async def reg_media(message: Message, state: FSMContext, bot: Bot, user_media):
     await clear(message.chat.id, bot)
     await state.update_data(tg_id=message.from_user.id, user_media_list=user_media)
     data = await state.get_data()
-    if data.get("is_single_edit", False):
-        db_success = await update_user(data, flag_media=True)
-        if db_success:
-            print("База данных успешно обновлена")
-        else:
-            print("База данных не обновлена")
-            print(data)
-        await state.update_data(is_single_edit=False)
-        await state.set_state(StateMenu.anketa)
-        await message.answer("Вы успешно обновили медиа", reply_markup=anketa_kb)
-        return
     profile_media = build_media_group(user_media)
     if profile_media:
         bot_msg = await ask(message, "Вот как выглядит твоя анкета!", reply_markup=ReplyKeyboardRemove())
@@ -274,6 +217,7 @@ async def reg_confirm(message: Message, state: FSMContext, bot: Bot):
     else:
         await clear(message.chat.id, bot)
         await message.answer("Выберите какой пункт хотите исправить:\n", reply_markup=anketa_kb)
+
 
 INVALID_TEXT = {
     StateRegistration.name.state: "Введи имя",

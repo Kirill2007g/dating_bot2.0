@@ -2,7 +2,8 @@ from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from src.checksclasses.dictionaries import ANKETA_ACTIONS, keyboards, prompts
+from src.db.db_queries import update_user
+from src.checksclasses.dictionaries import ANKETA_ACTIONS, keyboards, prompts, STATE_TO_FIELD
 from src.checksclasses.validation import UserIdMiddleware, build_media_group, media_list
 from src.db.db_queries import (
     add_to_seen_ids_table,
@@ -12,7 +13,9 @@ from src.db.db_queries import (
     get_profile_media,
     get_show_form,
     get_ten,
+    update_value
 )
+
 from src.handlers.keyboards import (
     anketa_kb,
     check_profiles_kb,
@@ -193,14 +196,34 @@ async def handle_actions(message: Message, state: FSMContext, bot: Bot):
         await state.set_state(StateRegistration.name)
         await message.answer("Как тебя зовут?")
         return
-    new_state = ANKETA_ACTIONS[message.text]
-    await state.update_data(is_single_edit=True)
-    await state.set_state(new_state)
-    check = keyboards.get(new_state, None)
-    if check is None:
-        await message.answer(prompts.get(new_state, "Не нашли промпт"))
-    else:
-        await message.answer(prompts.get(new_state, "Не нашли промпт"),
-                             reply_markup=check)
 
+
+    await state.set_state(StateMenu.edit_anketa)
+    state_ = ANKETA_ACTIONS[message.text]
+    await state.update_data(tg_id=message.from_user.id, new_state=state_)
+    keyboard_ = keyboards.get(state_, None)
+    if keyboard_ is not None:
+        await message.answer(prompts.get(state_, "Не нашли промпт"), reply_markup=keyboard_)
+
+    # new_state = ANKETA_ACTIONS[message.text]
+    # await state.update_data(is_single_edit=True)
+    # await state.set_state(new_state)
+    # check = keyboards.get(new_state, None)
+    # if check is None:
+    #     await message.answer(prompts.get(new_state, "Не нашли промпт"))
+    # else:
+    #     await message.answer(prompts.get(new_state, "Не нашли промпт"),
+    #                          reply_markup=check)
+
+
+@router.message(StateMenu.edit_anketa)
+async def edit_anketa(message: Message, state: FSMContext):
+    data = await state.get_data()
+    new_state = data.get("new_state")
+    if new_state is None or message.from_user is None:
+        return
+    new_field = STATE_TO_FIELD[new_state]
+    await update_value(tg_id=message.from_user.id, field=new_field, value=message.text)
+    await message.answer("Успешно обновили значение", reply_markup=menu_kb)
+    await state.set_state(StateMenu.menu)
 

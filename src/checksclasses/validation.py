@@ -48,6 +48,8 @@ dadata_secret_key = settings.dadata_secret_key.get_secret_value()
 email_regexp = r"^[a-zA-Z0-9_.]+@[a-zA-Z0-9]+\.[a-zA-Z0-9-.]+$"
 domens_regexp = r"\b"
 
+
+
 class IsValidName(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         if not message.text:
@@ -209,6 +211,16 @@ class UserIdMiddleware(BaseMiddleware):
             return
         data["user_id"] = user.id
         return await handler(event, data)
+
+async def media_list(profile_media):
+    return [
+            {"type": m.media_type.value, "file_id": m.file_id}
+            for m in profile_media
+        ]
+class IsSingleEdit(BaseFilter):
+    async def __call__(self, event: TelegramObject, state: FSMContext) -> bool:
+        data = await state.get_data()
+        return bool(data.get("is_single_edit", False))
 # import logging
 # logging.basicConfig(level=logging.INFO)
 # logger = logging.getLogger(__name__)
@@ -225,9 +237,3 @@ class UserIdMiddleware(BaseMiddleware):
 #                 logger.info(f"Текущий State {current_state}")
 #                 # logger.info(f"Текущий хендлер {handler_name}")
 #         return await handler(event, data)
-
-async def media_list(profile_media):
-    return [
-            {"type": m.media_type.value, "file_id": m.file_id}
-            for m in profile_media
-        ]

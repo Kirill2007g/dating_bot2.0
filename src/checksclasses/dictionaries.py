@@ -18,7 +18,7 @@ FIELD_PROMPTS = {
     "media": "Пришли фото/видео до 3 штук",
 }
 
-
+ALLOWED_FIELDS = {"name", "age", "city", "description", "gender", "looking_for"}
 ANKETA_ACTIONS: dict[str, State] = {
     "Заполнить анкету заново": StateRegistration.make_anketa_again,
     "Изменить 'Имя'": StateRegistration.name,
@@ -41,7 +41,14 @@ prompts = {
         StateMenu.settings: "Settings",
         StateMenu.anketa: 'state_anketa'
     }
-
+STATE_TO_FIELD = {
+    StateRegistration.name: "name",
+    StateRegistration.age: "age",
+    StateRegistration.city: "city",
+    StateRegistration.gender: "gender",
+    StateRegistration.description: "description",
+    StateRegistration.looking_for: "looking_for"
+}
 #state and past state сокращенно saps
 saps = {
         StateMenu.anketa: 'StateMenu.menu',

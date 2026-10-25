@@ -5,6 +5,10 @@ from src.db.database import async_session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import selectinload
 import redis.asyncio as aioredis
+
+from src.checksclasses.dictionaries import ALLOWED_FIELDS
+
+
 async def check_city_in_db(user_text: str):
     clean_input = user_text.strip().lower()
     async with async_session() as session:
@@ -157,6 +161,15 @@ async def update_user(data: dict, flag_media: bool = False):
             print(f"Ошибка при обновлении пользователя {tg_id} в БД: {e}")
             return False
 
+async def update_value(tg_id: int, field, value):
+        if field not in ALLOWED_FIELDS or not value:
+            return False
+        async with async_session() as session:
+            query = update(User).where(User.tg_id == tg_id).values(**{field: value})
+            await session.execute(query)
+            await session.commit()
+
+
 async def get_profile(tg_id: int) -> User | None:
     async with async_session() as session:
         user_query = (
@@ -187,41 +200,7 @@ async def get_profile_media(tg_id: int) -> list[UserMedia]:
         )
         user_result = await session.execute(user_query)
         return list(user_result.scalars().all())
-# async def get_profile_media(tg_id: int):
-#     user = await get_profile(tg_id)
-#     user_id = user.show_userid
-#     async with async_session() as session:
-#         user_query = (
-#             select(UserMedia)
-#             .where(UserMedia.id == user_id)
 
-#         )
-#         user_result = await session.execute(user_query)
-#         return user_result
-#     # return UserMedia.return_user_media if user else None
-
-
-
-# async def set_reaction(from_user_id, to_user_id, reaction, message: str | None = None):
-#     async with async_session() as session:
-#         query = pg_insert(Action).values(
-#             from_user_id=from_user_id,
-#             to_user_id=to_user_id,
-#             reaction=reaction,
-#             message=message
-#         )
-#         query = query.on_conflict_do_update(
-#             constraint="uq_from_to_user",
-#             set_={"reaction": reaction, "message": message}
-#         )
-#         await session.execute(query)
-#         await session.commit()
-
-# async def adjust_rating(tg_id, rating_change: int):
-#     async with async_session() as session:
-#         query = update(User).where(User.tg_id==tg_id).values(rating=User.rating + rating_change)
-#         await session.execute(query)
-#         await session.commit()
 
 
 
@@ -274,26 +253,3 @@ async def get_all_seen_ids(user_tg_id: int) -> list[int]:
 
 
 
-lst = {
-    "id": 5, #int
-    "tg_id": 7654337654, #int
-    "name": "Kacob", #str
-    "age": 18, #int
-    "gender": "male", #str
-    "city": "Kiev", #str
-    "description": "scientist", #str
-    "looking_for": "female", #str
-    "rating": 5.0001, #Decimal
-}
-
-dct = {
-    "id": ..., #int
-    "tg_id": ..., #int
-    "name": ..., #str
-    "age": ..., #int
-    "gender": ..., #str
-    "city": ..., #str
-    "description": ..., #str
-    "looking_for": ..., #str
-    "rating": ..., #Decimal
-}

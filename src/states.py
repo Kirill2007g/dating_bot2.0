@@ -18,6 +18,7 @@ class StateMenu(StatesGroup):
     check_profiles = State()
     settings = State()
     anketa = State()
-    edit_multiple = State()
+    edit_anketa = State()
+
 
 

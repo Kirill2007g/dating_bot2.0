@@ -49,7 +49,6 @@ class User(Base):
     city: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(String(1000), nullable=True)
     looking_for: Mapped[str] = mapped_column(String(255), nullable=False)
-    # user_media_list: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     rating: Mapped[Decimal] = mapped_column(
          Numeric(precision=10, scale=4),
          default=Decimal("0.0000"),
@@ -69,18 +68,13 @@ class User(Base):
     @property
     def show_userid(self):
         return self.id
-    #show profile text name age city description
-    # @property
-    # def show_profile_text(self):
-    #     return f"{self.name}, {self.age}, {self.city}\n {self.description}"
+
 
     @property
     def show_form(self):
         return self.name, self.age, self.city, self.description
 
-    # @property
-    # def show_profile_media(self):
-    #     return self.media
+
 
     def __repr__(self):
         return (f"<User:\n"
