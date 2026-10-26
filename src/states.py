@@ -19,6 +19,8 @@ class StateMenu(StatesGroup):
     settings = State()
     anketa = State()
     edit_anketa = State()
+    edit_media = State()
+    edit_description = State()
 
 
 

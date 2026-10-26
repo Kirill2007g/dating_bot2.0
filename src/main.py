@@ -8,6 +8,7 @@ dp = Dispatcher(memory=MemoryStorage())
 
 dp.include_router(start.router)
 dp.include_router(viewing.router)
+dp.include_router(viewing.router_media)
 
 
 async def main():

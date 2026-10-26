@@ -175,6 +175,7 @@ class AlbumMiddleware(BaseMiddleware):
                 user_media.append({"media_type": "VIDEO", "file_id": msg.video.file_id})
             elif msg.video_note:
                 user_media.append({"media_type": "VIDEO_NOTE", "file_id": msg.video_note.file_id})
+        print(user_media)
         return user_media
 
 

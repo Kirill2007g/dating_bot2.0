@@ -161,9 +161,21 @@ async def update_user(data: dict, flag_media: bool = False):
             print(f"Ошибка при обновлении пользователя {tg_id} в БД: {e}")
             return False
 
+
+async def update_media(tg_id: int, media_list):
+    async with async_session() as session:
+        user_id = await session.scalar(select(User.id).where(User.tg_id == tg_id))
+        if user_id is None:
+            return
+        await session.execute(delete(UserMedia).where(UserMedia.user_id == user_id))
+        session.add_all(UserMedia(user_id=user_id, **m)for m in media_list)
+        await session.commit()
+
 async def update_value(tg_id: int, field: str, value: str | int):
         if field not in ALLOWED_FIELDS or not value:
             return False
+        if field == "age":
+            value = int(value)
         async with async_session() as session:
             query = update(User).where(User.tg_id == tg_id).values(**{field: value})
             await session.execute(query)

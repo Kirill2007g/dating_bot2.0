@@ -22,7 +22,7 @@ from src.db.db_queries import (
     get_profile_media,
     get_show_form,
     save_user_in_db,
-    update_user,
+
 )
 from src.handlers.keyboards import (
     anketa_kb,

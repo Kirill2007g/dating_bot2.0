@@ -38,7 +38,7 @@ prompts: dict[State | None, str] = {
         StateRegistration.city: "В каком ты городе?",
         StateRegistration.description: "Расскажи о себе",
         StateRegistration.looking_for: "Кого ты ищешь?",
-        StateRegistration.media: "Пришли фото или видео",
+        StateRegistration.media: "Пришли фото или видео до 3х штук",
         StateRegistration.make_anketa_again: "Как тебя зовут?",
         StateMenu.settings: "Settings",
         StateMenu.anketa: 'state_anketa'
