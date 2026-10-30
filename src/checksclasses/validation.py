@@ -14,6 +14,7 @@ import redis.asyncio as aioredis
 from src.config import settings
 from src.db.db_queries import check_city_in_db, save_in_city_mapping
 from src.db.validation_queries import validate_city_geopy
+from datetime import datetime
 dadata_api_key = settings.dadata_api_key.get_secret_value()
 dadata_secret_key = settings.dadata_secret_key.get_secret_value()
 
@@ -202,5 +203,32 @@ class IsSingleEdit(BaseFilter):
         data = await state.get_data()
         return bool(data.get("is_single_edit", False))
 
+import logging
+logger = logging.getLogger(name="LoggingMiddleware")
+logger.setLevel(level=logging.DEBUG)
+handler = logging.FileHandler("C:\\Users\\User\\Desktop\\logs.txt", encoding="utf-8", mode="a")
+handler.setLevel(level=logging.DEBUG)
+logger.addHandler(handler)
 
 
+class LoggingMiddleware(BaseMiddleware):
+    async def __call__(
+        self,
+        handler: Callable[[Message, dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: dict[str, Any],
+    ) -> Any:
+        if event.from_user is not None:
+            log_data = {
+                "user_tg_id": event.from_user.id,
+                "datetime": datetime.now(),
+                "level": logger.level,
+                "logger": logger.name,
+
+            }
+            logger.debug(log_data)
+
+        #Before
+        result = await handler(event, data)
+        #After
+        return result

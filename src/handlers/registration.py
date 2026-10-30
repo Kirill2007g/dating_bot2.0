@@ -24,7 +24,7 @@ from src.db.db_queries import (
     save_user_in_db,
 
 )
-from src.handlers.keyboards import (
+from src.keyboards import (
     anketa_kb,
     choose_gender,
     choose_looking_for,

@@ -9,7 +9,7 @@ class StateRegistration(StatesGroup):
     looking_for = State()
     media = State()
     confirm = State()
-    make_anketa_again = State()
+
 
 
 class StateMenu(StatesGroup):
@@ -24,3 +24,9 @@ class StateMenu(StatesGroup):
 
 
 
+#StateMenu
+# menu ->Смотреть анкеты, мой профиль, настройки, заполнить анкету заново
+#check_profiles, my_profile, settings, edit_anketa
+#для check_profiles отдельный роутер сделать вообще лучше всего будет
+#settings отдельный роутер тоже мб сделать чекну
+#edit anketa аналогично еще роутер

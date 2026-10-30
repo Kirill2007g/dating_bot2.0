@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from src.states import State, StateMenu, StateRegistration
 from src.db.db_queries import update_user
 from src.checksclasses.dictionaries import ANKETA_ACTIONS,  prompts, _messages
-from src.handlers.keyboards import anketa_kb
+from src.keyboards import anketa_kb
 
 
 

@@ -1,5 +1,5 @@
 from src.states import State, StateMenu, StateRegistration
-from src.handlers.keyboards import ( choose_gender, choose_looking_for,
+from src.keyboards import ( choose_gender, choose_looking_for,
                                     anketa_kb, settings_kb, menu_kb)
 _messages: dict[int, list[int]] = {}
 
@@ -22,7 +22,7 @@ INVALID_TEXT: dict[str | None, str] = {
 }
 ALLOWED_FIELDS: set[str] = {"name", "age", "city", "description", "gender", "looking_for"}
 ANKETA_ACTIONS: dict[str, State] = {
-    "Заполнить анкету заново": StateRegistration.make_anketa_again,
+    # "Заполнить анкету заново": StateMenu.make_anketa_again,
     "Изменить 'Имя'": StateRegistration.name,
     "Изменить 'Возраст'": StateRegistration.age,
     "Изменить 'Пол'": StateRegistration.gender,
@@ -39,7 +39,7 @@ prompts: dict[State | None, str] = {
         StateRegistration.description: "Расскажи о себе",
         StateRegistration.looking_for: "Кого ты ищешь?",
         StateRegistration.media: "Пришли фото или видео до 3х штук",
-        StateRegistration.make_anketa_again: "Как тебя зовут?",
+        # StateMenu.make_anketa_again: "Как тебя зовут?",
         StateMenu.settings: "Settings",
         StateMenu.anketa: 'state_anketa'
     }
