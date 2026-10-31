@@ -14,7 +14,7 @@ import redis.asyncio as aioredis
 from src.config import settings
 from src.db.db_queries import check_city_in_db, save_in_city_mapping
 from src.db.validation_queries import validate_city_geopy
-from datetime import datetime
+from datetime import datetime, timezone
 dadata_api_key = settings.dadata_api_key.get_secret_value()
 dadata_secret_key = settings.dadata_secret_key.get_secret_value()
 
@@ -203,12 +203,38 @@ class IsSingleEdit(BaseFilter):
         data = await state.get_data()
         return bool(data.get("is_single_edit", False))
 
+
 import logging
-logger = logging.getLogger(name="LoggingMiddleware")
-logger.setLevel(level=logging.DEBUG)
-handler = logging.FileHandler("C:\\Users\\User\\Desktop\\logs.txt", encoding="utf-8", mode="a")
-handler.setLevel(level=logging.DEBUG)
-logger.addHandler(handler)
+
+class JSONFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        log_data = {
+            "timestamp": datetime.fromtimestamp(
+                record.created, tz=timezone.utc
+            ).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "user_id": getattr(record, "user_id", None),
+            "text": getattr(record, 'text', None)
+        }
+
+
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_data, ensure_ascii=False, default=str)
+
+
+logger = logging.getLogger("LoggingMiddleware")
+logger.setLevel(logging.DEBUG)
+
+file_handler = logging.FileHandler(
+    "C:\\Users\\User\\Desktop\\logs.txt", encoding="utf-8", mode="a"
+)
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(JSONFormatter())
+logger.addHandler(file_handler)
 
 
 class LoggingMiddleware(BaseMiddleware):
@@ -219,14 +245,21 @@ class LoggingMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         if event.from_user is not None:
-            log_data = {
-                "user_tg_id": event.from_user.id,
-                "datetime": datetime.now(),
-                "level": logger.level,
-                "logger": logger.name,
+            tg_id = event.from_user.id
+            state = data.get('state', None)
+            action = 1
+            fsm_storage = data.get('fsm_storage')
+            user_id = data.get('user_id')
+            print(f" state {(state)}, fsm_storage {(fsm_storage)}, user_id: {user_id}")
+            print(list(data))
+            logger.debug(
+                "incomning message",
+                extra={
+                    "user_id": event.from_user.id,
+                    "text": event.text
+                },
+            )
 
-            }
-            logger.debug(log_data)
 
         #Before
         result = await handler(event, data)

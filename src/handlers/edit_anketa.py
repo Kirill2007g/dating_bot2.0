@@ -4,12 +4,12 @@ from aiogram.types import Message, CallbackQuery
 
 from src.states import StateRegistration, StateMenu
 from src.checksclasses.dictionaries import ANKETA_ACTIONS, keyboards, prompts, STATE_TO_FIELD
-from src.checksclasses.validation import UserIdMiddleware, AlbumMiddleware, is_valid_description
+from src.checksclasses.validation import UserIdMiddleware, AlbumMiddleware, is_valid_description, LoggingMiddleware
 from src.db.db_queries import update_value, update_media
 from src.keyboards import menu_kb
 router = Router()
 router_media = Router()
-
+router.message.middleware(LoggingMiddleware())
 router.message.middleware(UserIdMiddleware())
 router_media.message.middleware(AlbumMiddleware())
 

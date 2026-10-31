@@ -7,6 +7,7 @@ from src.checksclasses.validation import (
     UserIdMiddleware,
     build_media_group,
     media_list,
+    LoggingMiddleware
 )
 from src.db.db_queries import (
     add_to_seen_ids_table,
@@ -30,6 +31,7 @@ from src.states import StateMenu
 router = Router()
 
 router.message.middleware(UserIdMiddleware())
+router.message.middleware(LoggingMiddleware())
 
 
 @router.message(StateMenu.menu)

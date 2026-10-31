@@ -16,6 +16,7 @@ from src.checksclasses.validation import (
     IsSingleEdit,
     build_media_group,
     media_list,
+    LoggingMiddleware
 )
 from src.db.db_queries import (
     get_profile,
@@ -38,6 +39,7 @@ router = Router()
 
 router.message.middleware(AlbumMiddleware())
 router.message.middleware(UserIdMiddleware())
+router.message.middleware(LoggingMiddleware())
 
 
 
