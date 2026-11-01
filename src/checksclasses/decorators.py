@@ -1,11 +1,8 @@
 import inspect
 from functools import wraps
 from aiogram.types import Message
-from aiogram.fsm.context import FSMContext
-from src.states import State, StateMenu, StateRegistration
-from src.db.db_queries import update_user
-from src.checksclasses.dictionaries import ANKETA_ACTIONS,  prompts, _messages
-from src.keyboards import anketa_kb
+from src.checksclasses.dictionaries import _messages
+
 
 
 

@@ -18,11 +18,15 @@ class StateMenu(StatesGroup):
     check_profiles = State()
     settings = State()
     anketa = State()
+
+
+class StateEdit(StatesGroup):
     edit_anketa = State()
     edit_media = State()
     edit_description = State()
 
-
+class StateSettings(StatesGroup):
+    pass
 
 #StateMenu
 # menu ->Смотреть анкеты, мой профиль, настройки, заполнить анкету заново

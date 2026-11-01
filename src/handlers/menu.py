@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 
-from src.checksclasses.validation import (
+from src.validation.validation import (
     UserIdMiddleware,
     build_media_group,
     media_list,
@@ -12,11 +12,8 @@ from src.checksclasses.validation import (
 from src.db.db_queries import (
     add_to_seen_ids_table,
     get_all_seen_ids,
-    get_profile,
-    get_profile_aclt,
-    get_profile_media,
-    get_show_form,
     get_ten,
+    UserQueries,
 )
 from src.keyboards import (
     anketa_kb,
@@ -41,12 +38,12 @@ async def menu(message: Message, state: FSMContext, user_id: int):
     if message.text == "Смотреть анкеты":
         await state.set_state(StateMenu.check_profiles)
         await message.answer("Смотреть анкеты!!!")
-        user_profile = await get_profile(tg_id=user_id)
+        user_profile = await UserQueries.get_profile(tg_id=user_id)
         await message.answer("ВЗЯЛИ ПРОФИЛЬ")
         if user_profile is None:
             await message.answer("Анкета не найдена.")
             return
-        user_aclt = await get_profile_aclt(user_profile.tg_id)
+        user_aclt = await UserQueries.get_profile_aclt(user_profile.tg_id)
         await message.answer("взяли aclt")
         if user_aclt is None:
             await message.answer("Анкета не найдена.")
@@ -84,8 +81,8 @@ async def menu(message: Message, state: FSMContext, user_id: int):
     if message.text == "Мой профиль":
         if message.from_user is None:
             return
-        profile_text = await get_show_form(user_id)
-        profile_media = await get_profile_media(user_id)
+        profile_text = await UserQueries.get_show_form(user_id)
+        profile_media = await UserQueries.get_profile_media(user_id)
         if profile_media:
             _media_list = await media_list(profile_media)
             media_group = build_media_group(_media_list)
@@ -102,7 +99,7 @@ async def menu(message: Message, state: FSMContext, user_id: int):
     if message.text == "Заполнить анкету заново":
         await message.answer("Выберите одно из:", reply_markup=anketa_kb)
         await state.set_state(StateMenu.anketa)
-        # logger.debug(f"словили message")
+
 
 
 @router.message(StateMenu.check_profiles)
@@ -134,11 +131,11 @@ async def check_profiles(message: Message, state: FSMContext, user_id: int):
         if not ten_users:
             await you()
     async def you():
-        user_profile = await get_profile(tg_id=user_id)
-        user_aclt = await get_profile_aclt(user_profile.tg_id)
+        user_profile = await UserQueries.get_profile(tg_id=user_id)
+        user_aclt = await UserQueries.get_profile_aclt(user_profile.tg_id)
         age, city, looking_for, tg_id = user_aclt
         seen_ids = await get_all_seen_ids(user_tg_id=user_id)
-        profiles = get_ten(age, city, looking_for, tg_id, seen_ids=seen_ids)
+        profiles = await get_ten(age, city, looking_for, tg_id, seen_ids=seen_ids)
         ten_users = []
         for user in profiles:
             await add_to_seen_ids_table(user_tg_id=user_id, viewed_profile_id=user.id)

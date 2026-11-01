@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from src.checksclasses.decorators import ask, clear, track_message
 from src.checksclasses.dictionaries import keyboards, prompts, saps, INVALID_TEXT
-from src.checksclasses.validation import (
+from src.validation.validation import (
     AlbumMiddleware,
     IsValidAge,
     IsValidCity,
@@ -19,10 +19,8 @@ from src.checksclasses.validation import (
     LoggingMiddleware
 )
 from src.db.db_queries import (
-    get_profile,
-    get_profile_media,
-    get_show_form,
-    save_user_in_db,
+    UserQueries,
+
 
 )
 from src.keyboards import (
@@ -47,10 +45,10 @@ router.message.middleware(LoggingMiddleware())
 @track_message
 async def command_start_handler(message: Message, state: FSMContext, user_id: int):
     await message.answer("⬇️⬇️⬇️⬇️⬇️⬇️⬇️⬇️")
-    profile = await get_profile(user_id)
+    profile = await UserQueries.get_profile(user_id)
     if profile:
-        profile = await get_show_form(tg_id=user_id)
-        profile_media = await get_profile_media(tg_id=user_id)
+        profile = await UserQueries.get_show_form(tg_id=user_id)
+        profile_media = await UserQueries.get_profile_media(tg_id=user_id)
         media_list_ = await media_list(profile_media)
         media = build_media_group(media_list_)
         if media:
@@ -212,7 +210,7 @@ async def reg_confirm(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     if message.text == "Да":
         await clear(message.chat.id, bot)
-        await save_user_in_db(fsm_data=data)
+        await UserQueries.save_user_in_db(fsm_data=data)
         await message.answer("Отлично анкета сохранена!", reply_markup=menu_kb)
         await state.set_state(StateMenu.menu)
     else:

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import re
-from src.checksclasses.text_filters import LINK_PATTERNS, SOCIAL_PATTERNS
+from src.validation.text_filters import LINK_PATTERNS, SOCIAL_PATTERNS
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -13,7 +13,7 @@ import redis.asyncio as aioredis
 
 from src.config import settings
 from src.db.db_queries import check_city_in_db, save_in_city_mapping
-from src.db.validation_queries import validate_city_geopy
+from src.validation.validation_queries import validate_city_geopy
 from datetime import datetime, timezone
 dadata_api_key = settings.dadata_api_key.get_secret_value()
 dadata_secret_key = settings.dadata_secret_key.get_secret_value()

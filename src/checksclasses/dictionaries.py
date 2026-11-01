@@ -1,3 +1,4 @@
+from src.db.models import MediaType
 from src.states import State, StateMenu, StateRegistration
 from src.keyboards import ( choose_gender, choose_looking_for,
                                     anketa_kb, settings_kb, menu_kb)
@@ -43,6 +44,7 @@ prompts: dict[State | None, str] = {
         StateMenu.settings: "Settings",
         StateMenu.anketa: 'state_anketa'
     }
+PROFILE_FIELDS = [ "name", "age", "gender", "city", "description", "looking_for"]
 STATE_TO_FIELD: dict[State, str] = {
     StateRegistration.name: "name",
     StateRegistration.age: "age",
@@ -69,3 +71,15 @@ keyboards = {
         StateMenu.menu: menu_kb,
     }
 
+_MEDIA_TYPE_MAP = {
+                "PHOTO": MediaType.PHOTO,
+                "VIDEO": MediaType.VIDEO,
+                "VIDEO_NOTE": MediaType.CIRCLE,
+            }
+
+GENDER_MAP = {
+    'looking_for_male': 'gender_male',
+    'looking_for_female': 'gender_female',
+    'looking_for_any': None
+}
+GENDERS = ['gender_male', 'gender_female', 'looking_for_male', 'looking_for_female', 'looking_for_any']
