@@ -21,7 +21,7 @@ class ActionQueries:
             if message is not None:
                 query_with_message = insert(Action).values(
                     **fields,
-                    message=message,
+                    message=str(message),
 
                 )
                 await session.execute(query_with_message)

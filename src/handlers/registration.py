@@ -43,12 +43,12 @@ router.message.middleware(LoggingMiddleware())
 
 @router.message(CommandStart())
 @track_message
-async def command_start_handler(message: Message, state: FSMContext, user_id: int):
+async def command_start_handler(message: Message, state: FSMContext, tg_user_id: int):
     await message.answer("⬇️⬇️⬇️⬇️⬇️⬇️⬇️⬇️")
-    profile = await UserQueries.get_profile(user_id)
+    profile = await UserQueries.get_profile(tg_user_id)
     if profile:
-        profile = await UserQueries.get_show_form(tg_id=user_id)
-        profile_media = await UserQueries.get_profile_media(tg_id=user_id)
+        profile = await UserQueries.get_show_form(tg_id=tg_user_id)
+        profile_media = await UserQueries.get_profile_media(tg_id=tg_user_id)
         media_list_ = await media_list(profile_media)
         media = build_media_group(media_list_)
         if media:
@@ -69,7 +69,7 @@ async def command_start_handler(message: Message, state: FSMContext, user_id: in
 
 
 @router.message(F.text == 'Назад')
-async def cancel(message: Message, state: FSMContext, user_id: int):
+async def cancel(message: Message, state: FSMContext, tg_user_id: int):
     current_state = await state.get_state()
     if current_state is None:
         await message.answer("/start")
@@ -105,20 +105,20 @@ async def start_registration(message: Message, state: FSMContext, bot: Bot):
 
 @router.message(StateRegistration.name, IsValidName())
 @track_message
-async def reg_name(message: Message, state: FSMContext, bot: Bot, user_id: int):
+async def reg_name(message: Message, state: FSMContext, bot: Bot, tg_user_id: int):
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=user_id, name=message.text)
+    await state.update_data(tg_id=tg_user_id, name=message.text)
     await state.set_state(StateRegistration.age)
     return await ask(message, "Сколько тебе лет?")
 
 @router.message(StateRegistration.age, IsValidAge())
 @track_message
-async def reg_age(message: Message, state: FSMContext, bot: Bot, user_id: int):
+async def reg_age(message: Message, state: FSMContext, bot: Bot, tg_user_id: int):
     age_text = message.text
     if age_text is None:
         return await message.answer("Введи возраст ")
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=user_id, age=int(age_text))
+    await state.update_data(tg_id=tg_user_id, age=int(age_text))
     await state.set_state(StateRegistration.gender)
     bot_msg = await ask(message, "Теперь выберем пол", reply_markup=choose_gender)
     return bot_msg
@@ -146,21 +146,21 @@ async def gender_wrong_input(message: Message):
 
 @router.message(StateRegistration.city, IsValidCity())
 @track_message
-async def reg_city(message: Message, state: FSMContext, bot: Bot, user_id: int):
+async def reg_city(message: Message, state: FSMContext, bot: Bot, tg_user_id: int):
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=user_id, city=message.text)
+    await state.update_data(tg_id=tg_user_id, city=message.text)
     await state.set_state(StateRegistration.description)
     bot_msg = await ask(message, "Теперь напишите о себе")
     return bot_msg
 
 @router.message(StateRegistration.description)
 @track_message
-async def reg_description(message: Message, state: FSMContext, bot: Bot, user_id: int):
+async def reg_description(message: Message, state: FSMContext, bot: Bot, tg_user_id: int):
     valid_description = await is_valid_description(message)
     if valid_description is False:
         return
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=user_id, description=message.text)
+    await state.update_data(tg_id=tg_user_id, description=message.text)
     await state.set_state(StateRegistration.looking_for)
     bot_msg = await ask(message, "Кого вы ищете", reply_markup=choose_looking_for)
     return bot_msg

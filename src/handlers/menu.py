@@ -71,7 +71,7 @@ async def menu(message: Message, state: FSMContext, tg_user_id: int):
                 await message.answer(f"{user.name}, {user.age}, {user.city}\n{user.description}", reply_markup=check_profiles_kb)
                 ten_users.pop(0)
         user_id = await UserQueries.get_user_id(tg_id=tg_user_id)
-        await state.update_data(ten_users_list=ten_users, from_user_id=user_id, to_user_id=user.id)
+        await state.update_data(ten_users_list=ten_users, from_user_id=user_id, to_user_id=user.id, tg_id=tg_user_id)
         await add_to_seen_ids_table(user_tg_id=tg_user_id, viewed_profile_id=user.id)
         await state.set_state(StateMenu.check_profiles)
         return
@@ -105,66 +105,6 @@ async def menu(message: Message, state: FSMContext, tg_user_id: int):
 
 
 
-@router.message(StateMenu.check_profiles)
-async def check_profiles(message: Message, state: FSMContext, user_id: int):
-    # boolean = True
-    # while boolean == True:
-    #     if not message.text:
-    #         return
-    #     data = await state.get_data()
-    #     ten_users = data.get("ten_users_list", [])
-    #     async def get_aclt_and_show():
-    #         user_name = ten_users[0].get('User').get('name')
-    #         user_age = ten_users[0].get('User').get('age')
-    #         user_city = ten_users[0].get('User').get('city')
-    #         user_description = ten_users[0].get('User').get('description')
-    #         ten_users.pop(0)
-    #         await message.answer(f"{user_name}, {user_age}, {user_city}\n{user_description}", reply_markup=check_profiles_kb)
-    if not message.text:
-        return
-    data = await state.get_data()
-    ten_users = data.get("ten_users_list", [])
-    async def get_aclt_and_show():
-        user_name = ten_users[0].get('User').get('name')
-        user_age = ten_users[0].get('User').get('age')
-        user_city = ten_users[0].get('User').get('city')
-        user_description = ten_users[0].get('User').get('description')
-        ten_users.pop(0)
-        await message.answer(f"{user_name}, {user_age}, {user_city}\n{user_description}", reply_markup=check_profiles_kb)
-        if not ten_users:
-            await you()
-    async def you():
-        user_profile = await UserQueries.get_profile(tg_id=user_id)
-        user_aclt = await UserQueries.get_profile_aclt(user_profile.tg_id)
-        age, city, looking_for, tg_id = user_aclt
-        seen_ids = await get_all_seen_ids(user_tg_id=user_id)
-        profiles = await get_ten(age, city, looking_for, tg_id, seen_ids=seen_ids)
-        ten_users = []
-        for user in profiles:
-            await add_to_seen_ids_table(user_tg_id=user_id, viewed_profile_id=user.id)
-            ten_users.append({'User': {'name': user.name, 'age': user.age, 'city': user.city,
-                                                        'looking_for': user.looking_for, 'gender': user.gender,
-                                                        'description': user.description}})
-        await get_aclt_and_show()
-    if message.text == "💤":
-        await message.answer("1.Смотреть Анкеты.\n"
-                             "2. Моя анкета.\n"
-                             "3.Я больше не хочу никого искать.\n"
-                             "4.Активируй Premium - будь в топе\n", reply_markup=zzz_kb)
-
-    if message.text == '❤️':
-        try:
-            await get_aclt_and_show()
-
-        except IndexError as e:
-            pass
-    if message.text == '👎':
-        try:
-            await get_aclt_and_show()
-        except IndexError as e:
-            pass
-    if message.text == '💌':
-        pass
 
 @router.message(StateMenu.settings, F.text == "Купить Премиум")
 async def buy_premium(message: Message, state: FSMContext):
