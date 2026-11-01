@@ -25,6 +25,7 @@ from src.keyboards import (
     zzz_kb,
 )
 from src.states import StateMenu
+from src.utils import get_ten_profiles, get_next_profile
 router = Router()
 
 router.message.middleware(UserIdMiddleware())
@@ -41,24 +42,9 @@ async def menu(message: Message, state: FSMContext, tg_user_id: int):
 
 
         await state.set_state(StateMenu.check_profiles)
-        user_profile = await UserQueries.get_profile(tg_id=tg_user_id)
-        if user_profile is None:
-            return
-        user_aclt = await UserQueries.get_profile_aclt(user_profile.tg_id)
-        if user_aclt is None:
-            return
-        fields = {key: value for key, value in user_aclt.items()}
-        seen_ids = await get_all_seen_ids(user_tg_id=tg_user_id)
-        profiles = await get_profiles_limit(**fields, seen_ids=seen_ids)
+        ten_users, profiles = await get_ten_profiles(tg_id=tg_user_id)
         if not profiles:
             return
-
-        ten_users = []
-
-        for user in profiles:
-            ten_users.append({user.id: {'name': user.name, 'age': user.age, 'city': user.city,
-                                                    'description': user.description}})
-
 
 
         user = profiles[0]
