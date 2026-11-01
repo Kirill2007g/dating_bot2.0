@@ -1,10 +1,9 @@
-from src.db.models import CityMapping, MediaType, User, Action, SeenProfiles, UserMedia
+from src.db.models import CityMapping, MediaType, User, Action, UserMedia
 from sqlalchemy import delete, func, select, insert, update
 from src.db.database import async_session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import selectinload
 import redis.asyncio as aioredis
-
 from src.checksclasses.dictionaries import (ALLOWED_FIELDS, _MEDIA_TYPE_MAP,
                                             PROFILE_FIELDS, GENDER_MAP, GENDERS,
                                             )
@@ -177,13 +176,16 @@ class UserQueries:
             user_result = await session.execute(user_query)
             return list(user_result.scalars().all())
 
+    @classmethod
+    async def get_user_id(cls, tg_id: int) -> int | None:
+        user = await UserQueries.get_profile(tg_id)
+        return user.id if user else None
 
 
 
 
 
-
-async def get_ten(age, city, looking_for, tg_id, seen_ids: list[int], limit: int=10):
+async def get_profiles_limit(age, city, looking_for, tg_id, seen_ids: list[int], limit: int=10) -> list[User]:
     age = int(age)
     city = city.strip()
     looking_for = looking_for.strip()
@@ -207,7 +209,7 @@ async def get_ten(age, city, looking_for, tg_id, seen_ids: list[int], limit: int
             User.rating.desc()).limit(limit)
         result = await session.execute(query)
         profiles = result.scalars().all()
-        return profiles
+        return list(profiles)
 
 #604800 = 7 дней
 r = aioredis.Redis(host="localhost", port=6379, decode_responses=True)

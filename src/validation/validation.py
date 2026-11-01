@@ -190,7 +190,7 @@ class UserIdMiddleware(BaseMiddleware):
         user = data.get("event_from_user")
         if user is None:
             return
-        data["user_id"] = user.id
+        data["tg_user_id"] = user.id
         return await handler(event, data)
 
 async def media_list(profile_media):

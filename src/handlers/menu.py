@@ -12,7 +12,7 @@ from src.validation.validation import (
 from src.db.db_queries import (
     add_to_seen_ids_table,
     get_all_seen_ids,
-    get_ten,
+    get_profiles_limit,
     UserQueries,
 )
 from src.keyboards import (
@@ -32,57 +32,60 @@ router.message.middleware(LoggingMiddleware())
 
 
 @router.message(StateMenu.menu)
-async def menu(message: Message, state: FSMContext, user_id: int):
+async def menu(message: Message, state: FSMContext, tg_user_id: int):
     if not message.text:
         return
+
+
     if message.text == "Смотреть анкеты":
+
+
         await state.set_state(StateMenu.check_profiles)
-        await message.answer("Смотреть анкеты!!!")
-        user_profile = await UserQueries.get_profile(tg_id=user_id)
-        await message.answer("ВЗЯЛИ ПРОФИЛЬ")
+        user_profile = await UserQueries.get_profile(tg_id=tg_user_id)
         if user_profile is None:
-            await message.answer("Анкета не найдена.")
             return
         user_aclt = await UserQueries.get_profile_aclt(user_profile.tg_id)
-        await message.answer("взяли aclt")
         if user_aclt is None:
-            await message.answer("Анкета не найдена.")
             return
-        age, city, looking_for, tg_id = user_aclt
-        await message.answer(f"age: {age} city: {city} looking_for: {looking_for} tg_id: {tg_id}")
-        seen_ids = await get_all_seen_ids(user_tg_id=user_id)
-        profiles = get_ten(age, city, looking_for, tg_id, seen_ids=seen_ids)
-        await message.answer("УСПЕХ GET TEN")
+        fields = {key: value for key, value in user_aclt.items()}
+        seen_ids = await get_all_seen_ids(user_tg_id=tg_user_id)
+        profiles = await get_profiles_limit(**fields, seen_ids=seen_ids)
         if not profiles:
-            await message.answer("анкет по критериям не нашли")
             return
-        ten_users = []
-        for user in profiles:
-            await add_to_seen_ids_table(user_tg_id=user_id, viewed_profile_id=user.id)
-            await state.set_state(StateMenu.check_profiles)
 
-            ten_users.append({'User': {'name': user.name, 'age': user.age, 'city': user.city,
-                                            'looking_for': user.looking_for, 'gender': user.gender,
-                                            'description': user.description}})
-        await state.update_data(ten_users_list=ten_users)
-        user_name = ten_users[0].get('User').get('name')
-        user_age = ten_users[0].get('User').get('age')
-        user_city = ten_users[0].get('User').get('city')
-        user_description = ten_users[0].get('User').get('description')
-        ten_users.pop(0)
-        await message.answer(f"{user_name}, {user_age}, {user_city}\n{user_description}", reply_markup=check_profiles_kb)
-        first = profiles[0]
-        media_list_ = await media_list(first.media)
-        media_group = build_media_group(media_list_)
-        if media_group:
-            await message.answer_media_group(media_group)
-        await message.answer(f"{first.name}, {first.age}, {first.city}\n{first.description}")
+        ten_users = []
+
+        for user in profiles:
+            ten_users.append({user.id: {'name': user.name, 'age': user.age, 'city': user.city,
+                                                    'description': user.description}})
+
+
+
+        user = profiles[0]
+        user_media = user.media if hasattr(user, 'media') else None
+        if user_media:
+            media_list_ = await media_list(user_media)
+            media_group = build_media_group(media_list_)
+            if media_group:
+                await message.answer_media_group(media_group)
+                await message.answer(f"{user.name}, {user.age}, {user.city}\n{user.description}", reply_markup=check_profiles_kb)
+                ten_users.pop(0)
+        user_id = await UserQueries.get_user_id(tg_id=tg_user_id)
+        await state.update_data(ten_users_list=ten_users, from_user_id=user_id, to_user_id=user.id)
+        await add_to_seen_ids_table(user_tg_id=tg_user_id, viewed_profile_id=user.id)
+        await state.set_state(StateMenu.check_profiles)
+        return
+
+
+
+
+
 
     if message.text == "Мой профиль":
         if message.from_user is None:
             return
-        profile_text = await UserQueries.get_show_form(user_id)
-        profile_media = await UserQueries.get_profile_media(user_id)
+        profile_text = await UserQueries.get_show_form(tg_user_id)
+        profile_media = await UserQueries.get_profile_media(tg_user_id)
         if profile_media:
             _media_list = await media_list(profile_media)
             media_group = build_media_group(_media_list)

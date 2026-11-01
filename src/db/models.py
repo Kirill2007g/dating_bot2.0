@@ -63,7 +63,7 @@ class User(Base):
     #show age city looking_for tg_id
     @property
     def show_aclt(self):
-        return self.age, self.city, self.looking_for, self.tg_id
+        return {"age": self.age, "city": self.city, "looking_for": self.looking_for, "tg_id": self.tg_id}
 
     @property
     def show_userid(self):
@@ -83,17 +83,19 @@ class User(Base):
                 f"DESCRIPTION:{self.description}\n LOOKING_FOR:{self.looking_for}\n"
                 f" \n RATING:{self.rating}\n>")
 
+    def __iter__(self):
+        for col in self.__table__.columns:
+            yield col.name, getattr(self, col.name)
+
+
 class UserMedia(Base):
     __tablename__ = "user_media"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     media_type: Mapped[MediaType] = mapped_column( nullable=False)
     file_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    # position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     user: Mapped["User"] = relationship(back_populates="media")
-    # __table_args__ = (
-    #     UniqueConstraint("user_id", "position", name="uq_user_media_position"),
-    # )
+
 
     @property
     def return_user_media(self):
@@ -101,6 +103,11 @@ class UserMedia(Base):
 
     def __repr__(self):
         return f"<UserMedia id={self.id} user_id={self.user_id} type={self.media_type} file_id={self.file_id}>"
+
+    def __iter__(self):
+        for col in self.__table__.columns:
+            yield col.name, getattr(self, col.name)
+
 
 class Action(Base):
     __tablename__ = "actions"
@@ -120,11 +127,3 @@ class Action(Base):
     from_user: Mapped['User'] = relationship(foreign_keys=[from_user_id])
     to_user: Mapped['User'] = relationship(foreign_keys=[to_user_id])
 
-class SeenProfiles(Base):
-    __tablename__ = "seen_profiles"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    viewer_tg_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    seen_tg_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    __table_args__ = (
-    UniqueConstraint("viewer_tg_id", "seen_tg_id", name="uq_viewer_seen"),
-)
