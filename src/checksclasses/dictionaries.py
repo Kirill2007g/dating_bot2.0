@@ -23,7 +23,7 @@ INVALID_TEXT: dict[str | None, str] = {
 }
 ALLOWED_FIELDS: set[str] = {"name", "age", "city", "description", "gender", "looking_for"}
 ANKETA_ACTIONS: dict[str, State] = {
-    # "Заполнить анкету заново": StateMenu.make_anketa_again,
+    "Заполнить анкету заново": StateRegistration.name,
     "Изменить 'Имя'": StateRegistration.name,
     "Изменить 'Возраст'": StateRegistration.age,
     "Изменить 'Пол'": StateRegistration.gender,

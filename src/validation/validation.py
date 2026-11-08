@@ -230,7 +230,7 @@ logger = logging.getLogger("LoggingMiddleware")
 logger.setLevel(logging.DEBUG)
 
 file_handler = logging.FileHandler(
-    "C:\\Users\\User\\Desktop\\logs.txt", encoding="utf-8", mode="a"
+    "/media/sf_Data/Dev/Projects/logs.txt", encoding="utf-8", mode="a"
 )
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(JSONFormatter())

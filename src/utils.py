@@ -1,6 +1,36 @@
-from src.db.db_queries import UserQueries, get_all_seen_ids, get_profiles_limit
+from src.db.db_queries import UserQueries, get_all_seen_ids, get_profiles_limit, add_to_seen_ids_table
 from src.validation.validation import build_media_group, media_list
-from src.db.db_queries import ActionQueries, add_to_seen_ids_table
+from src.db.actionqueries import ActionQueries
+from aiogram.types import Message, CallbackQuery
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State
+from src.checksclasses.decorators import clear
+from typing import Optional, Any
+from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
+
+
+
+async def custom_switch(
+        self,
+        event: Message | CallbackQuery,
+        next_state: State,
+        text: str,
+        reply_markup: Optional[InlineKeyboardMarkup | ReplyKeyboardMarkup] = None,
+        **data
+        ):
+    
+    await self.clear()
+    if data:
+        await self.update_data(**data)
+
+    await self.set_state(next_state)
+    target = event if isinstance(event, Message) else event.message
+    if target:
+        await target.answer(text, reply_markup=reply_markup)
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+FSMContext.switch = custom_switch
+
 
 async def get_ten_profiles(tg_id) -> tuple[list, list]:
     user_profile = await UserQueries.get_profile(tg_id=tg_id)

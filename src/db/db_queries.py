@@ -130,7 +130,7 @@ class UserQueries:
 
 
     @classmethod
-    async def update_value(cls,tg_id: int, field: str, value: str | int):
+    async def update_value(cls, tg_id: int, field: str, value: str | int):
         if field not in ALLOWED_FIELDS or not value:
             return False
         if field == "age":

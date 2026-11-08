@@ -11,8 +11,6 @@ from src.validation.validation import (
 )
 from src.db.db_queries import (
     add_to_seen_ids_table,
-    get_all_seen_ids,
-    get_profiles_limit,
     UserQueries,
 )
 from src.keyboards import (
@@ -25,9 +23,8 @@ from src.keyboards import (
     zzz_kb,
 )
 from src.states import StateMenu
-from src.utils import get_ten_profiles, get_next_profile
+from src.utils import get_ten_profiles
 router = Router()
-
 router.message.middleware(UserIdMiddleware())
 router.message.middleware(LoggingMiddleware())
 

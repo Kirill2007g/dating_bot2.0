@@ -20,9 +20,8 @@ from src.validation.validation import (
 )
 from src.db.db_queries import (
     UserQueries,
-
-
 )
+
 from src.keyboards import (
     anketa_kb,
     choose_gender,
@@ -103,13 +102,13 @@ async def start_registration(message: Message, state: FSMContext, bot: Bot):
 
 
 
+
 @router.message(StateRegistration.name, IsValidName())
 @track_message
 async def reg_name(message: Message, state: FSMContext, bot: Bot, tg_user_id: int):
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=tg_user_id, name=message.text)
-    await state.set_state(StateRegistration.age)
-    return await ask(message, "Сколько тебе лет?")
+    await state.switch(message, next_state=StateRegistration.age, text="Сколько тебе лет?", tg_id=tg_user_id, name=message.text)
+
 
 @router.message(StateRegistration.age, IsValidAge())
 @track_message
@@ -118,10 +117,8 @@ async def reg_age(message: Message, state: FSMContext, bot: Bot, tg_user_id: int
     if age_text is None:
         return await message.answer("Введи возраст ")
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=tg_user_id, age=int(age_text))
-    await state.set_state(StateRegistration.gender)
-    bot_msg = await ask(message, "Теперь выберем пол", reply_markup=choose_gender)
-    return bot_msg
+    await state.switch(message, next_state=StateRegistration.gender, text="Теперь выберем пол", reply_markup=choose_gender, tg_id=tg_user_id, age=int(age_text))
+
 
 @router.callback_query(StateRegistration.gender, F.data.in_(['gender_male', 'gender_female']))
 @track_message
@@ -134,24 +131,22 @@ async def reg_gender(callback_query: CallbackQuery, state: FSMContext, bot: Bot)
     message = callback_query.message
     if message is None:
         return
+    
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=callback_query.from_user.id, gender=callback_query.data)
-    await state.set_state(StateRegistration.city)
-    bot_msg = await ask(message, "Теперь напиши свой город", reply_markup=ReplyKeyboardRemove())
-    return bot_msg
+    await state.switch(callback_query, next_state=StateRegistration.city, text="Теперь напиши свой город", tg_id=callback_query.from_user.id, gender=callback_query.data, reply_markup=ReplyKeyboardRemove())
+
 
 @router.message(StateRegistration.gender)
 async def gender_wrong_input(message: Message):
     await message.answer("Выбери кнопкой, какой у тебя пол?", reply_markup=choose_gender)
 
+
 @router.message(StateRegistration.city, IsValidCity())
 @track_message
 async def reg_city(message: Message, state: FSMContext, bot: Bot, tg_user_id: int):
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=tg_user_id, city=message.text)
-    await state.set_state(StateRegistration.description)
-    bot_msg = await ask(message, "Теперь напишите о себе")
-    return bot_msg
+    await state.switch(message, next_state=StateRegistration.description, text="Теперь напиши о себе", tg_id=tg_user_id, city=message.text)
+
 
 @router.message(StateRegistration.description)
 @track_message
@@ -160,10 +155,8 @@ async def reg_description(message: Message, state: FSMContext, bot: Bot, tg_user
     if valid_description is False:
         return
     await clear(message.chat.id, bot)
-    await state.update_data(tg_id=tg_user_id, description=message.text)
-    await state.set_state(StateRegistration.looking_for)
-    bot_msg = await ask(message, "Кого вы ищете", reply_markup=choose_looking_for)
-    return bot_msg
+    await state.switch(message, next_state=StateRegistration.looking_for, text="Кого вы ищете", tg_id=tg_user_id, description=message.text, reply_markup=choose_looking_for)
+
 
 
 @router.callback_query(StateRegistration.looking_for, F.data.in_(['looking_for_male', 'looking_for_female', 'looking_for_any']))
@@ -174,14 +167,13 @@ async def reg_looking_for(callback_query: CallbackQuery, state: FSMContext, bot:
     if not await IsValidLookingfor()(callback_query):
         return await callback_query.message.answer("Кого вы ищете", reply_markup=choose_looking_for)
     await clear(callback_query.message.chat.id, bot)
-    await state.update_data(tg_id=callback_query.from_user.id, looking_for=callback_query.data)
-    await state.set_state(StateRegistration.media)
-    bot_msg = await ask(callback_query.message, "Теперь пришлите фото/видео до 3 штук")
-    return bot_msg
+    await state.switch(callback_query, next_state=StateRegistration.media, text="Теперь пришлите фото/видео до 3 штук", tg_id=callback_query.from_user.id, looking_for=callback_query.data)
+
 
 @router.message(StateRegistration.looking_for)
 async def looking_for_wrong_input(message: Message):
     await message.answer("Выбери кнопкой, кого вы ищётё", reply_markup=choose_looking_for)
+
 
 @router.message(StateRegistration.media, F.photo | F.video | F.video_note)
 @track_message
@@ -194,11 +186,11 @@ async def reg_media(message: Message, state: FSMContext, bot: Bot, user_media):
     profile_media = build_media_group(user_media)
     if profile_media:
         bot_msg = await ask(message, "Вот как выглядит твоя анкета!", reply_markup=ReplyKeyboardRemove())
-        bot_msg2 = await message.answer_media_group(profile_media)
-        bot_msg2 = await ask(message, f"{data['name']}, {data['age']}, {data['city']}\n{data['description']}")
+        bot_msg1 = await message.answer_media_group(profile_media)
+        bot_msg2 = await ask(message, f"{data.get('name')}, {data.get('age')}, {data['city']}\n{data['description']}")
         bot_msg3 = await ask(message, "Все верно?", reply_markup=confirm_kb)
         await state.set_state(StateRegistration.confirm)
-        return [bot_msg, bot_msg2, bot_msg3]
+        return [bot_msg, bot_msg1, bot_msg2, bot_msg3]
 
 @router.message(StateRegistration.media)
 async def media_wrong_input(message: Message):

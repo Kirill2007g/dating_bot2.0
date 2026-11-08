@@ -40,29 +40,43 @@ async def handle_actions(message: Message, state: FSMContext):
     if keyboard_ is not None:
          await message.answer(prompts.get(state_, "Не нашли промпт"), reply_markup=keyboard_)
 
-@router.message(StateEdit.edit_anketa)
-async def edit_anketa(message: Message, callback_query: CallbackQuery, state: FSMContext):
+async def process_anketa_update(state: FSMContext, user_id: int, incoming_value: any, event: Message | CallbackQuery):
     data = await state.get_data()
     new_state = data.get("new_state")
-    if new_state is None or message.from_user is None:
+    if not new_state:
         return
     new_field = STATE_TO_FIELD[new_state]
-    value = message.text if message.text is not None else callback_query.message
-    await UserQueries.update_user(data={new_field: value}, flag_media=False)
-    await message.answer("Успешно обновили значение", reply_markup=menu_kb)
+    value = incoming_value.text if isinstance(incoming_value, Message) else incoming_value.data
+    await UserQueries.update_value(tg_id=user_id, field=new_field, value=value)
+    target = event if isinstance(event, Message) else event.message
+    await target.answer("Успешно обновили значение", reply_markup=menu_kb)
+    
     await state.set_state(StateMenu.menu)
+
+@router.callback_query(StateEdit.edit_anketa)
+async def edit_anketa_callback(callback_query: CallbackQuery, state: FSMContext):
+    if callback_query.from_user is None:
+        return
+    await process_anketa_update(state, callback_query.from_user.id, callback_query, event=callback_query)
+    await callback_query.answer() 
+
+@router.message(StateEdit.edit_anketa)
+async def edit_anketa_message(message: Message, state: FSMContext):
+    if message.from_user is None or message.text is None:
+        return
+    await process_anketa_update(state, message.from_user.id, message, event=message)
 
 @router_media.message(StateEdit.edit_media, F.photo | F.video | F.video_note)
 async def edit_media(message: Message, state: FSMContext, user_media):
     if user_media is None or message.from_user is None:
         return
-    await UserQueries.update_user(data={"media": user_media}, flag_media=True)
+    await UserQueries.update_media(tg_id=message.from_user.id, media_list=message)
     await message.answer("Успешно обновили значение", reply_markup=menu_kb)
     await state.set_state(StateMenu.menu)
 
 @router.message(StateEdit.edit_description)
 async def edit_description(message: Message, state: FSMContext):
     value = await is_valid_description(message)
-    await UserQueries.update_user(data={"description": value}, flag_media=False)
+    await UserQueries.update_value(tg_id=message.from_user.id, field="description", value=value)
     await message.answer("Успешно обновили значение", reply_markup=menu_kb)
     await state.set_state(StateMenu.menu)
