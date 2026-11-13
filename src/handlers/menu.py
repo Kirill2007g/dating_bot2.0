@@ -79,41 +79,15 @@ async def menu(message: Message, state: FSMContext, tg_user_id: int):
             await message.answer(f"{name}, {age}, {city}\n{description}", reply_markup=menu_kb)
 
     if message.text == "Настройки":
+        await message.answer(
+        "1. Изменить язык\n"
+        "2. Купить Премиум\n"
+        "3. Написать в поддержку\n"
+        "4. Назад\n", reply_markup=settings_kb)
         await state.set_state(StateMenu.settings)
-        await message.answer("Settings", reply_markup=settings_kb)
 
     if message.text == "Заполнить анкету заново":
         await message.answer("Выберите одно из:", reply_markup=anketa_kb)
         await state.set_state(StateMenu.anketa)
 
-
-
-
-@router.message(StateMenu.settings, F.text == "Купить Премиум")
-async def buy_premium(message: Message, state: FSMContext):
-    await message.answer("Активируй Premium и будь в топе ✨""\n"
-                         "\n"
-                        "Выделяйся среди других:\n"
-                        "📈 Больше показов анкеты\n"
-                        "🚀 Больше лайков\n"
-                        "👀 Твои лайки видят первыми\n"
-                        "⭐️ Твоя анкета выше остальных\n"
-                        "\n"
-                        "Больше внимания. Больше взаимных. Больше знакомств 💫\n"
-                        "\n"
-                        "Выбери срок действия Premium:\n"
-                        "\n"
-                        "• 2 дня • ⭐ 150\n"
-                        "\n"
-                        "• 10 дней • ⭐ 350\n"
-                        "\n"\
-                        "• 30 дней • ⭐ 500\n"
-                        "\n"
-                        "• 90 дней • ⭐ 1000\n"
-                        "\n"
-                        "*Оплачивая Premium, ты принимаешь условия покупки", reply_markup=settings_kb_premium)
-
-@router.message(StateMenu.settings, F.text == "Изменить язык")
-async def change_language(message: Message, state: FSMContext):
-    await message.answer("Languages available:", reply_markup=settings_kb_language)
 

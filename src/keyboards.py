@@ -67,12 +67,13 @@ anketa_kb = make_keyboard_repr(
 
 
 settings_kb = make_keyboard_repr(
-    ["Изменить язык", "Премиум", "Написать в поддержку",
-     'Назад'], adjust=(3, 1)
+    ["Изменить язык", "Купить Премиум", "Написать в поддержку", "Назад"],
+    adjust=(3, 1)
 )
 settings_kb_premium = make_keyboard_repr(
     ["2 дні • ⭐️ 150", "10 днів • ⭐️ 350",
      "30 днів • ⭐️ 500", "90 днів • ⭐️ 1000",
      "Назад"], adjust=(1, 1, 1, 1, 1))
 settings_kb_language = make_keyboard_repr(
-    ["Русский", "English"], adjust=(2, 1))
+    ["Русский", "English", "Українська", "Назад"], adjust=(4, 1))
+

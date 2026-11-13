@@ -11,11 +11,11 @@ async def fill_db():
 
         users = [
             User(
-                tg_id=300000 + i,
+                tg_id=500000 + i,
                 name=f"User{i}",
                 age=ages[i % len(ages)],
                 gender="gender_male" if i % 2 == 0 else "gender_female",
-                city="Измаил",
+                city="Одесса",
                 description=f"Test user number {i}",
                 looking_for="looking_for_female" if i % 2 == 0 else "looking_for_male",
 

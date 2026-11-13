@@ -224,7 +224,14 @@ async def get_all_seen_ids(user_tg_id: int) -> list[int]:
     seen_ids_raw = await r.smembers(redis_key)
     return [int(x) for x in seen_ids_raw]
 
+async def add_user_id_to_redis(user_tg_id: int):
+    await r.sadd("user_ids", user_tg_id)
+    await r.expire("user_ids", 604800)
 
+async def check_user_id_in_redis(user_tg_id: int) -> bool:
+    return await bool(r.sismember("user_ids", user_tg_id))
+
+    
 
 
 

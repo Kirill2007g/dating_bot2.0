@@ -20,6 +20,8 @@ from src.validation.validation import (
 )
 from src.db.db_queries import (
     UserQueries,
+    add_user_id_to_redis,
+    check_user_id_in_redis
 )
 
 from src.keyboards import (
@@ -30,7 +32,7 @@ from src.keyboards import (
     menu_kb,
     start_markup,
 )
-from src.states import StateMenu, StateRegistration
+from src.states import StateMenu, StateRegistration, StateEdit
 
 router = Router()
 
@@ -44,6 +46,7 @@ router.message.middleware(LoggingMiddleware())
 @track_message
 async def command_start_handler(message: Message, state: FSMContext, tg_user_id: int):
     await message.answer("⬇️⬇️⬇️⬇️⬇️⬇️⬇️⬇️")
+    await add_user_id_to_redis(tg_user_id)
     profile = await UserQueries.get_profile(tg_user_id)
     if profile:
         profile = await UserQueries.get_show_form(tg_id=tg_user_id)
@@ -67,30 +70,30 @@ async def command_start_handler(message: Message, state: FSMContext, tg_user_id:
     return sent_msg
 
 
-@router.message(F.text == 'Назад')
-async def cancel(message: Message, state: FSMContext, tg_user_id: int):
-    current_state = await state.get_state()
-    if current_state is None:
-        await message.answer("/start")
-        return
-    data = await state.get_data()
-    past_state = saps.get(current_state, 'sa')
-    await state.set_state(past_state)
-    prompt = prompts.get(past_state, 'Не нашли промпт')
-    keyboard = keyboards.get(past_state, 'Не нашли клавиатуру')
-    if not prompt:
-        await message.answer('Не нашли промпт')
-        return
-    if prompt and not keyboard:
-        await message.answer(prompt)
-        return
-    if prompt and keyboard:
-        await message.answer(prompt, reply_markup=keyboard)
-        return
+# @router.message(F.text == 'Назад')
+# async def cancel(message: Message, state: FSMContext, tg_user_id: int):
+#     current_state = await state.get_state()
+#     if current_state is None:
+#         await message.answer("/start")
+#         return
+#     data = await state.get_data()
+#     past_state = saps.get(current_state, 'sa')
+#     await state.set_state(past_state)
+#     prompt = prompts.get(past_state, 'Не нашли промпт')
+#     keyboard = keyboards.get(past_state, 'Не нашли клавиатуру')
+#     if not prompt:
+#         await message.answer('Не нашли промпт')
+#         return
+#     if prompt and not keyboard:
+#         await message.answer(prompt)
+#         return
+#     if prompt and keyboard:
+#         await message.answer(prompt, reply_markup=keyboard)
+#         return
 
-    await state.clear()
-    await message.answer("canceled", reply_markup=ReplyKeyboardRemove())
-    await state.set_state(StateMenu.menu)
+#     await state.clear()
+#     await message.answer("canceled", reply_markup=ReplyKeyboardRemove())
+#     await state.set_state(StateMenu.menu)
 
 @router.message(F.text == "Заполнить анкету")
 @track_message
@@ -203,11 +206,17 @@ async def reg_confirm(message: Message, state: FSMContext, bot: Bot):
     if message.text == "Да":
         await clear(message.chat.id, bot)
         await UserQueries.save_user_in_db(fsm_data=data)
-        await message.answer("Отлично анкета сохранена!", reply_markup=menu_kb)
+        await message.answer("Отично анкета сохранена!", reply_markup=menu_kb)
+        await message.answer(
+        "1. Смотреть анкеты\n" 
+        "2. Мой профиль\n" 
+        "3. Настройки\n" 
+        "4. Заполнить анкету заново\n")
         await state.set_state(StateMenu.menu)
     else:
         await clear(message.chat.id, bot)
         await message.answer("Выберите какой пункт хотите исправить:\n", reply_markup=anketa_kb)
+        await state.set_state(StateEdit.edit_anketa)
 
 
 @router.message(StateFilter(StateRegistration.name, StateRegistration.age,
